@@ -3,6 +3,7 @@ from os.path import exists
 import runpy
 import os
 from .module import Module
+import re
 
 _REQ = [
     "@rollup/plugin-commonjs",
@@ -18,6 +19,18 @@ _REQ = [
 _ROLLUP_CFG = (
     "https://raw.githubusercontent.com/sveltejs/template/master/rollup.config.js"
 )
+
+_HTML_F = """<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <style>{}</style>
+</head>
+<body>
+    <script defer>{}</script>
+</body>
+</html>"""
 
 
 def pr_exists(name):
@@ -65,7 +78,7 @@ def initialize():
 
 
 def create_link(inp, out):
-    path, instance = inp.split(':')
+    path, instance = inp.split(":")
 
     lib = runpy.run_path(path)
     inst = [k for k, v in lib.items() if isinstance(v, Module) and k == instance]
@@ -76,4 +89,16 @@ def create_link(inp, out):
 
 
 def build(out):
-    os.system(f"npx rollup -c -o {out}")
+    os.system("npx rollup -c --silent -o ./__buildcache__/bundle.js")
+    js = None
+    css = None
+    if exists("./__buildcache__/bundle.js"):
+        with open("./__buildcache__/bundle.js", "r", encoding="utf-8") as fh:
+            js = fh.read()
+    if exists("./__buildcache__/bundle.css"):
+        with open("./__buildcache__/bundle.css", "r", encoding="utf-8") as fh:
+            css = fh.read()
+    with open(out, "w", encoding="utf-8") as fh:
+        fh.write(re.sub(r"<!--(.*?)-->|\s\B", "", _HTML_F.format(css, js)))
+
+    os.rmdir("./__buildcache__")

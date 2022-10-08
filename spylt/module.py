@@ -42,6 +42,11 @@ class Module:
             fh.write(linker)
         return self
 
+    def build(self, path: str):
+        from .builder import build as _build
+
+        _build(path)
+
 
 def require_svelte(path: str):
     """Functional importing of Svelte code"""

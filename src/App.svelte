@@ -1,5 +1,13 @@
 <script>
-    export let text;
-    setTimeout(() => text = "Hello world!", 5000)
+    import Data from "./Data.svelte";
 </script>
-<p>{text}</p>
+
+<main>
+    <Data />
+</main>
+
+<style>
+    main {
+        background-color: red;
+    }
+</style>
