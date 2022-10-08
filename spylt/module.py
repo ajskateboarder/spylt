@@ -42,10 +42,10 @@ class Module:
             fh.write(linker)
         return self
 
-    def build(self, path: str):
+    def build(self, path: str, linker: str):
         from .builder import build as _build
 
-        _build(path)
+        _build(path, linker)
 
 
 def require_svelte(path: str):

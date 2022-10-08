@@ -1,9 +1,12 @@
 """Automation tools to compile Svelte to direct HTML"""
 from os.path import exists
-import runpy
+from shutil import rmtree
 import os
-from .module import Module
 import re
+import runpy
+
+from .module import Module
+
 
 _REQ = [
     "@rollup/plugin-commonjs",
@@ -88,8 +91,8 @@ def create_link(inp, out):
     lib[inst[0]].create_linker(out)
 
 
-def build(out):
-    os.system("npx rollup -c --silent -o ./__buildcache__/bundle.js")
+def build(out, linker):
+    os.system(f"npx rollup -c --silent --input={linker} -o ./__buildcache__/bundle.js")
     js = None
     css = None
     if exists("./__buildcache__/bundle.js"):
@@ -101,4 +104,4 @@ def build(out):
     with open(out, "w", encoding="utf-8") as fh:
         fh.write(re.sub(r"<!--(.*?)-->|\s\B", "", _HTML_F.format(css, js)))
 
-    os.rmdir("./__buildcache__")
+    rmtree("./__buildcache__")

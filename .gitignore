@@ -1,0 +1,3 @@
+package*.json
+**/__pycache__
+**/rollup.config.js
