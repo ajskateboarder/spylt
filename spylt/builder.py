@@ -86,6 +86,7 @@ def initialize():
 
 def create_link(inp, out):
     path, instance = inp.split(":")
+    print(os.path.exists(path))
 
     lib = runpy.run_path(path)
     inst = [k for k, v in lib.items() if isinstance(v, Module) and k == instance]

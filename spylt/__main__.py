@@ -1,15 +1,38 @@
 """The CLI, I guess"""
+import argparse
 import sys
 from .builder import create_html, initialize, create_link
 
-try:
-    if sys.argv[1] == "init":
+class CommandLine:
+    def __init__(self):
+        parser = argparse.ArgumentParser(
+            description='Spylt CLI',
+            usage='''spylt <command> [<args>]
+
+Commands:
+   init     Initialize a new Spylt project
+   html     Compile Svelte code imported to Python
+   api      Compile Python functions into APIs
+
+''')
+
+        parser.add_argument('command', help='Subcommand to run')
+        args = parser.parse_args(sys.argv[1:2])
+
+        if not hasattr(self, args.command):
+            print('Unrecognized command')
+            parser.print_help()
+            sys.exit(1)
+        getattr(self, args.command)()
+
+    def init(self):
         initialize()
-    elif sys.argv[1] == "html":
-        create_html(sys.argv[2], sys.argv[3])
-    elif sys.argv[1] == "link":
-        create_link(sys.argv[2], sys.argv[3])
-    elif sys.argv[1] == "api":
-        pass
-except IndexError as e:
-    sys.exit("No such command exists (init, build, or link)")
+
+    def html(self):
+        try:
+            create_link(sys.argv[2], "./main.js")
+            create_html(sys.argv[3], "./main.js")
+        except IndexError:
+            sys.exit("Required arguments: <path to py>:<app object> <path to html>")
+
+CommandLine()
