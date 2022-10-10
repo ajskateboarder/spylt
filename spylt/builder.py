@@ -1,11 +1,15 @@
 """Automation tools to compile Svelte to direct HTML"""
+from itertools import chain
 from os.path import exists
 from shutil import rmtree
+from inspect import get_annotations, getsourcelines
+from functools import reduce
 import os
 import re
 import runpy
 
 from .module import Module
+from .helpers import replace_some
 
 
 _REQ = [
@@ -91,7 +95,7 @@ def create_link(inp, out):
     lib[inst[0]].create_linker(out)
 
 
-def build(out, linker):
+def create_html(out, linker):
     os.system(f"npx rollup -c --silent --input={linker} -o ./__buildcache__/bundle.js")
     js = None
     css = None
@@ -102,6 +106,74 @@ def build(out, linker):
         with open("./__buildcache__/bundle.css", "r", encoding="utf-8") as fh:
             css = fh.read()
     with open(out, "w", encoding="utf-8") as fh:
-        fh.write(re.sub(r"<!--(.*?)-->|\s\B", "", _HTML_F.format(css, js)))
+        fh.write(
+            re.sub(
+                r"<!--(.*?)-->|\s\B", "", _HTML_F.format("" if not css else css, js)
+            ).replace("//# sourceMappingURL=bundle.js.map", "")
+        )
 
     rmtree("./__buildcache__")
+
+
+def _create_api(functions):
+    source_names = []
+    source_args = []
+    source_types = []
+    sources = []
+    _F, _B, _Q = "{", "}", '"'
+
+    for api in functions:
+        source = getsourcelines(api)
+        source_types.append(get_annotations(api))
+        defined = False
+        lines = []
+        for line in source[0]:
+            if defined:
+                if "return" in line:
+                    ret = f"{line.strip().replace(' ', f' {_F}{_Q}response{_Q}: ', 1)}{_B}"
+                    lines.append(ret)
+                else:
+                    lines.append(line.strip())
+            if line.startswith("def"):
+                defpoint = [
+                    e.replace(",", "")
+                    for e in line.strip()
+                    .replace("(", " ")
+                    .replace(")", " ")
+                    .replace(":", "")
+                    .split(" ")[1:-1]
+                ]
+                source_names.append(defpoint[0])
+                source_args.append(defpoint[1:])
+                defined = True
+        sources.append(lines)
+
+    source_args = [
+        [k for k in e if not k in ("int", "str") and k != ""] for e in source_args
+    ]
+    source_types = [[e[1] for e in list(s.items())] for s in source_types]
+    type_arg = dict(zip(list(chain.from_iterable(source_args)), source_types))
+
+    if not all(x in type_arg for x in source_args[0]):
+        raise RuntimeError(
+            f"No types are set on arguments \"{', '.join(source_args[0])}\" on function {source_names[0]}()\n"
+            "Please annotate the arguments so types can be casted correctly"
+        )
+    
+    return source_args, dict(zip(source_names, sources)), source_types
+
+
+def create_api(apis):
+    _N, _Q, _NN = "\n    ", '"', "\n"
+    args, source, types = _create_api(apis)
+    print(types)
+    argmap = reduce(
+        lambda x, y: x | y, [{k: f"request.args.get(\"{k}\", type={w.__name__})" for k, w in zip(l, t)} for l, t in zip(args, types)], {}
+    )
+
+    return f"""from quart import Quart, request
+
+        app = Quart(__name__)
+
+        {_NN.join([replace_some(f"@app.route({_Q}/api/{name}{_Q}){_NN}async def {name}():{_N}        {_NN.join(lines)}{_NN}", argmap) for name, lines in source.items()])}
+    """.replace("        ", "")[:-5]

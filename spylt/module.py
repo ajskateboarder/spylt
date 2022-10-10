@@ -2,16 +2,21 @@
 import json
 from typing import Callable
 from os.path import exists
-from .helpers import js_val
+
+from .helpers import js_val, replace_some
+
 
 _encoder = json.JSONEncoder(ensure_ascii=False)
 
 
 class Module:
+    """Svelte component representable as Python"""
+
     def __init__(self, path: str) -> None:
         self._path = path
         self._props = {}
-        self._api = None
+        self._apis = []
+        self._linker = None
 
     def add_props(self, **props):
         """Add props to a Svelte component to be referenced"""
@@ -19,11 +24,13 @@ class Module:
             self._props[k] = v
         return self
 
-    def set_api(self, func: Callable):
-        """Set a function to work as an interoping API (decorator is preferred)"""
-        self._api = func
+    def set_apis(self, *funcs: Callable):
+        """Set functions to work as interoping APIs (@interop is preferred)"""
+        self._apis.extend(funcs)
+        return self
 
     def create_linker(self, path: str):
+        """Programmatically create a linking main.js file with any props"""
         _newline = "\n"
         linker = f"""import App from '{self._path.replace('./src/', './')}';
 
@@ -37,15 +44,35 @@ class Module:
         export default app;""".replace(
             "        ", ""
         )
-
         with open(path, "w", encoding="utf-8") as fh:
             fh.write(linker)
+
+        self._linker = path
         return self
 
-    def build(self, path: str, linker: str):
-        from .builder import build as _build
+    def create_html(self, path: str):
+        """Programmatically create HTML from the imported Svelte code"""
+        from . import builder
 
-        _build(path, linker)
+        builder.create_html(path, self._linker)
+
+    def create_api(self, path: str):
+        """Programmatically create a Sanic API from the functions defined"""
+        from . import builder
+
+        api = builder.create_api(self._apis)
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write(api)
+
+
+def interopable(app):
+    """Create a function which converts to a Sanic API route"""
+
+    def inner(func):
+        app.set_apis(func)
+        return func
+
+    return inner
 
 
 def require_svelte(path: str):

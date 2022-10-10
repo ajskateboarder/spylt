@@ -8,8 +8,22 @@ No directory structure is forced, making Spylt very unopinionated and scalable w
 
 Normally, if you wanted to combine an API and a frontend framework, you would have to separate the apps into different codebases and different repositories. 
 
-The ideal solution would be to simply store frontend code in a single application, similar to how classic SSR sites work. Instead of storing HTML pages however, it would have Svelte pages, which allow for better modularity and more reactivity. 
+The ideal solution would be to simply store frontend code in a single application, similar to how classic SSR sites work. Instead of storing HTML pages however, it would have Svelte pages, which allow for better modularity and more reactivity. (This isn't possible to actually do, but such behavior can be emulated.)
 
 **This is your solution.**
+
+In addition, the whole site can be created and built automatically into a [Quart](https://quart.palletsprojects.com/) app with compiled Svelte code and even backend API routes!  
+
+## Simple usage
+
+Create a new project:
+
+```bash
+python3 -m spylt init <dir>
+```
+
+This installs required NPM packages and creates a `rollup.config.js` for compiling Svelte to JS/CSS/HTML. This is the default config for `sveltejs/template`. You can configure Rollup to support TypeScript and SCSS. 
+
+#
 
 Inspired by [PySvelte](https://github.com/anthropics/PySvelte)

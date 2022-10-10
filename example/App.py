@@ -1,11 +1,18 @@
-from spylt import require_svelte, interop
+from spylt import require_svelte, interopable
 
 app = require_svelte("./App.svelte")
 
-app.add_props(text="Pooping...")
-app.add_props(age="Pooping...")
+app.add_props(name="loading...")
 
 
-@interop(app)
-def say_hi():
-    return "Hello world!"
+@interopable(app)
+def addition(one: int, two: int):
+    return one + two
+
+
+@interopable(app)
+def hello(name: str):
+    return "Hello {}!".format(name)
+
+
+app.create_api("./app.py")

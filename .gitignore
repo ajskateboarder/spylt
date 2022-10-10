@@ -2,3 +2,4 @@ package*.json
 **/__pycache__
 **/rollup.config.js
 **/*.egg-info
+**/node_modules

@@ -20,3 +20,9 @@ def js_val(encoder, data):
     else:
         val = encoder.encode(data)
     return val
+
+
+def replace_some(text, conversion_dict):
+    for key, value in conversion_dict.items():
+        text = text.replace(key, value)
+    return text
