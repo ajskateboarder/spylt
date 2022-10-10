@@ -32,7 +32,7 @@ class Module:
     def create_linker(self, path: str):
         """Programmatically create a linking main.js file with any props"""
         _newline = "\n"
-        linker = f"""import App from '{self._path.replace('./src/', './')}';
+        linker = f"""import App from '{self._path}';
 
         const app = new App({{
             target: document.body,

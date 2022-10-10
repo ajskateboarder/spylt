@@ -46,19 +46,22 @@ def pr_exists(name):
     return False
 
 
-def curl_rollup():
-    if pr_exists("curl"):
-        os.system(f"curl {_ROLLUP_CFG} -o ./rollup.config.js")
-    elif pr_exists("wget"):
-        os.system(f"wget {_ROLLUP_CFG}")
-    else:
-        raise RuntimeError(
-            "cURL / Wget are not installed. "
-            "Install either program with your system's package manager."
+def copy_rollup():
+    with open(os.path.join(os.path.dirname(os.path.realpath(__file__)), "rollup.config.txt"), encoding="utf-8") as fh:
+        with open("./rollup.config.js", "w", encoding="utf-8") as fh_:
+            fh_.write(fh.read())
+
+
+def template(directory):
+    if os.path.exists(directory):
+        raise FileExistsError(
+            "Directory already exists. "
+            "Choose a directory that doesn't exist yet."
         )
 
+    os.mkdir(directory)
+    os.chdir(directory)
 
-def initialize():
     if not pr_exists("npm"):
         raise RuntimeError(
             "Node and NPM are not installed.\n"
@@ -76,7 +79,25 @@ def initialize():
         )
         if inp in ("N", "n"):
             return
-    curl_rollup()
+    copy_rollup()
+    os.mkdir("src")
+    with open("src/App.svelte", "w", encoding="utf-8") as fh:
+        fh.write("""<!-- point ./src/App.py:app -->
+<script>
+    export let text
+    setTimeout(() => text = "Hello world!", 5000)
+</script>
+<main>
+    <p>{text}</p>
+</main>
+        """)
+    with open("src/App.py", "w", encoding="utf-8") as fh:
+        fh.write("""from spylt import require_svelte
+
+app = require_svelte("./src/App.svelte")
+app.add_props(text="Loading...")
+        """)
+
     print(
         "* Project initialized successfully! *\n"
         "Now you can setup a simple project and run: "
@@ -96,7 +117,7 @@ def create_link(inp, out):
 
 
 def create_html(out, linker):
-    os.system(f"npx rollup -c --input={linker} -o ./__buildcache__/bundle.js")
+    os.system(f"npx rollup --config --input={linker} -o ./__buildcache__/bundle.js")
     js = None
     css = None
     if exists("./__buildcache__/bundle.js"):
@@ -151,7 +172,6 @@ def _create_api(functions):
     source_args = [
         [k for k in e if not k in ("int", "str") and k != ""] for e in source_args
     ]
-    source_types = [[e[1] for e in list(s.items())] for s in source_types]
     type_arg = dict(zip(list(chain.from_iterable(source_args)), source_types))
 
     if not all(x in type_arg for x in source_args[0]):
@@ -160,8 +180,7 @@ def _create_api(functions):
             "Please annotate the arguments so types can be casted correctly"
         )
     
-    return source_args, dict(zip(source_names, sources)), source_types
-
+    return source_args, dict(zip(source_names, sources)),  [[e[1] for e in list(s.items())] for s in source_types]
 
 def create_api(apis):
     _N, _Q, _NN = "\n    ", '"', "\n"

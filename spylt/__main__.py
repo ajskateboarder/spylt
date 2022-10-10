@@ -3,7 +3,7 @@ import argparse
 from time import time
 import sys
 
-from .builder import create_html, initialize, create_link
+from .builder import create_html, template, create_link
 from .helpers import find_pointer
 
 class CommandLine:
@@ -16,7 +16,7 @@ class CommandLine:
             usage='''spylt <command> [<args>]
 
 Available commands:
-   init:     Initialize a new Spylt project
+   new:      Initialize a new Spylt project
    html:     Transpile Svelte code imported to Python
    api:      Convert Python functions into APIs
 ''')
@@ -30,8 +30,8 @@ Available commands:
             sys.exit(1)
         getattr(self, args.command)()
 
-    def init(self):
-        initialize()
+    def new(self):
+        template(sys.argv[2])
 
     def html(self):
         try:
