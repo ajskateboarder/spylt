@@ -3,3 +3,5 @@ package*.json
 **/rollup.config.js
 **/*.egg-info
 **/node_modules
+env
+venv

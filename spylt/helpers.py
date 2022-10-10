@@ -26,3 +26,16 @@ def replace_some(text, conversion_dict):
     for key, value in conversion_dict.items():
         text = text.replace(key, value)
     return text
+
+
+def find_pointer(path):
+    with open(path, encoding="utf-8") as fh:
+        lines = fh.readlines()
+        if not 'point' in lines[0]:
+            raise RuntimeError(
+                "No Python file is being pointed to. "
+                "Please add a comment at the top of your Svelte code "
+                "(ex: <!-- point App.py:app -->)"
+            )
+        pointer = lines[0].replace('point', '').replace('<!--', '').replace('-->', '').replace(' ', '').strip()
+        return pointer

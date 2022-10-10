@@ -86,7 +86,6 @@ def initialize():
 
 def create_link(inp, out):
     path, instance = inp.split(":")
-    print(os.path.exists(path))
 
     lib = runpy.run_path(path)
     inst = [k for k, v in lib.items() if isinstance(v, Module) and k == instance]
@@ -97,7 +96,7 @@ def create_link(inp, out):
 
 
 def create_html(out, linker):
-    os.system(f"npx rollup -c --silent --input={linker} -o ./__buildcache__/bundle.js")
+    os.system(f"npx rollup -c --input={linker} -o ./__buildcache__/bundle.js")
     js = None
     css = None
     if exists("./__buildcache__/bundle.js"):
