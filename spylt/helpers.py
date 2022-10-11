@@ -1,3 +1,16 @@
+from collections.abc import MutableMapping
+
+
+def flatten_dict(d):
+    items = []
+    for k, v in d.items():
+        if isinstance(v, MutableMapping):
+            items.extend(flatten_dict(v).items())
+        else:
+            items.append((k, v))
+    return dict(items)
+
+
 def js_list(encoder, data):
     pairs = []
     for v in data:
@@ -31,11 +44,18 @@ def replace_some(text, conversion_dict):
 def find_pointer(path):
     with open(path, encoding="utf-8") as fh:
         lines = fh.readlines()
-        if not 'point' in lines[0]:
+        if not "point" in lines[0]:
             raise RuntimeError(
                 "No Python file is being pointed to. "
                 "Please add a comment at the top of your Svelte code "
                 "(ex: <!-- point App.py:app -->)"
             )
-        pointer = lines[0].replace('point', '').replace('<!--', '').replace('-->', '').replace(' ', '').strip()
+        pointer = (
+            lines[0]
+            .replace("point", "")
+            .replace("<!--", "")
+            .replace("-->", "")
+            .replace(" ", "")
+            .strip()
+        )
         return pointer

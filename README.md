@@ -1,5 +1,7 @@
 # spylt
 
+**This project is very experimental, expect bugs and caveats**
+
 **Spylt (*spilt*)** is a full-stack web framework which simplifies backend development and frontend development. Simple Python functions can be turned into web APIs which can be directly called from Svelte code **under a single codebase.**  
 
 No directory structure is forced, making Spylt very unopinionated and scalable when organizing code.
@@ -19,10 +21,21 @@ In addition, the whole site can be created and built automatically into a [Quart
 Create a new project:
 
 ```bash
-python3 -m spylt init <dir>
+python3 -m spylt new <dir>
 ```
 
 This installs required NPM packages and creates a `rollup.config.js` for compiling Svelte to JS/CSS/HTML. This is the default config for `sveltejs/template`. You can configure Rollup to support TypeScript and SCSS. 
+
+There should also be an `src/` directory with an `App.py` and an `App.svelte`.
+
+Compile the Svelte to HTML with:
+
+```bash
+python3 -m spylt html ./src/App.svelte ./index.html
+```
+
+## Caveats
+yes
 
 #
 

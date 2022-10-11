@@ -2,14 +2,15 @@
 from itertools import chain
 from os.path import exists
 from shutil import rmtree
-from inspect import get_annotations, getsourcelines
+from inspect import get_annotations, getsourcelines, getsource
 from functools import reduce
 import os
 import re
 import runpy
 
 from .module import Module
-from .helpers import replace_some
+from .imports import check_imports
+from .helpers import replace_some, flatten_dict
 
 
 _REQ = [
@@ -47,7 +48,10 @@ def pr_exists(name):
 
 
 def copy_rollup():
-    with open(os.path.join(os.path.dirname(os.path.realpath(__file__)), "rollup.config.txt"), encoding="utf-8") as fh:
+    with open(
+        os.path.join(os.path.dirname(os.path.realpath(__file__)), "rollup.config.txt"),
+        encoding="utf-8",
+    ) as fh:
         with open("./rollup.config.js", "w", encoding="utf-8") as fh_:
             fh_.write(fh.read())
 
@@ -55,8 +59,7 @@ def copy_rollup():
 def template(directory):
     if os.path.exists(directory):
         raise FileExistsError(
-            "Directory already exists. "
-            "Choose a directory that doesn't exist yet."
+            "Directory already exists. " "Choose a directory that doesn't exist yet."
         )
 
     os.mkdir(directory)
@@ -82,7 +85,8 @@ def template(directory):
     copy_rollup()
     os.mkdir("src")
     with open("src/App.svelte", "w", encoding="utf-8") as fh:
-        fh.write("""<!-- point ./src/App.py:app -->
+        fh.write(
+            """<!-- point ./src/App.py:app -->
 <script>
     export let text
     setTimeout(() => text = "Hello world!", 5000)
@@ -90,13 +94,16 @@ def template(directory):
 <main>
     <p>{text}</p>
 </main>
-        """)
+        """
+        )
     with open("src/App.py", "w", encoding="utf-8") as fh:
-        fh.write("""from spylt import require_svelte
+        fh.write(
+            """from spylt import require_svelte
 
 app = require_svelte("./src/App.svelte")
 app.add_props(text="Loading...")
-        """)
+        """
+        )
 
     print(
         "* Project initialized successfully! *\n"
@@ -136,16 +143,18 @@ def create_html(out, linker):
     rmtree("./__buildcache__")
 
 
-def _create_api(functions):
-    source_names = []
-    source_args = []
-    source_types = []
+def _create_api(functions, source_file):
+    source_map = {"names": [], "args": [], "types": []}
     sources = []
     _F, _B, _Q = "{", "}", '"'
 
+    with open(source_file, encoding="utf-8") as fh:
+        imports = check_imports(fh.read())
+
     for api in functions:
         source = getsourcelines(api)
-        source_types.append(get_annotations(api))
+
+        source_map["types"].append(get_annotations(api))
         defined = False
         lines = []
         for line in source[0]:
@@ -164,35 +173,56 @@ def _create_api(functions):
                     .replace(":", "")
                     .split(" ")[1:-1]
                 ]
-                source_names.append(defpoint[0])
-                source_args.append(defpoint[1:])
+                source_map["names"].append(defpoint[0])
+                source_map["args"].append(defpoint[1:])
                 defined = True
         sources.append(lines)
 
     source_args = [
-        [k for k in e if not k in ("int", "str") and k != ""] for e in source_args
+        [k for k in e if not k in ("int", "str") and k != ""]
+        for e in source_map["args"]
     ]
-    type_arg = dict(zip(list(chain.from_iterable(source_args)), source_types))
+    type_arg = flatten_dict(
+        dict(list(zip(list(chain.from_iterable(source_args)), source_map["types"])))
+    )
 
     if not all(x in type_arg for x in source_args[0]):
         raise RuntimeError(
-            f"No types are set on arguments \"{', '.join(source_args[0])}\" on function {source_names[0]}()\n"
+            f"No types are set on arguments \"{', '.join(source_args[0])}\" "
+            "on function {source_map['names'][0]}()\n"
             "Please annotate the arguments so types can be casted correctly"
         )
-    
-    return source_args, dict(zip(source_names, sources)),  [[e[1] for e in list(s.items())] for s in source_types]
+
+    return (
+        source_map["args"],
+        dict(zip(source_map["names"], sources)),
+        [[e[1] for e in list(s.items())] for s in source_map["types"]],
+    )
+
 
 def create_api(apis):
     _N, _Q, _NN = "\n    ", '"', "\n"
     args, source, types = _create_api(apis)
-    print(types)
     argmap = reduce(
-        lambda x, y: x | y, [{k: f"request.args.get(\"{k}\", type={w.__name__})" for k, w in zip(l, t)} for l, t in zip(args, types)], {}
+        lambda x, y: x | y,
+        [
+            {k: f"request.args.get('{k}', type={w.__name__})" for k, w in zip(l, t)}
+            for l, t in zip(args, types)
+        ],
+        {},
     )
 
-    return f"""from quart import Quart, request
+    QUERY = f"""
+        from quart import Quart, request
 
         app = Quart(__name__)
 
-        {_NN.join([replace_some(f"@app.route({_Q}/api/{name}{_Q}){_NN}async def {name}():{_N}        {_NN.join(lines)}{_NN}", argmap) for name, lines in source.items()])}
-    """.replace("        ", "")[:-5]
+        {_NN.join([replace_some(f"@app.route({_Q}/api/{name}{_Q}){_NN}async def {name}():{_N}        {_N.join(lines)}{_NN}", argmap) for name, lines in source.items()])}
+    """.replace(
+        "        ", ""
+    )[
+        :-5
+    ]
+
+    print(QUERY)
+    return QUERY

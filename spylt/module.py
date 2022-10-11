@@ -2,6 +2,7 @@
 import json
 from typing import Callable
 from os.path import exists
+import inspect
 
 from .helpers import js_val, replace_some
 
@@ -12,10 +13,11 @@ _encoder = json.JSONEncoder(ensure_ascii=False)
 class Module:
     """Svelte component representable as Python"""
 
-    def __init__(self, path: str) -> None:
+    def __init__(self, path: str, file: str) -> None:
         self._path = path
         self._props = {}
         self._apis = []
+        self.file = file
         self._linker = None
 
     def add_props(self, **props):
@@ -79,4 +81,4 @@ def require_svelte(path: str):
     """Functional importing of Svelte code"""
     if not exists(path):
         raise RuntimeError("Svelte file doesn't exist")
-    return Module(path)
+    return Module(path, inspect.stack()[1][1])
