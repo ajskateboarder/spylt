@@ -62,8 +62,12 @@ api.run()
 ```
 
 ## Caveats
-- `src.*` imports are ignored in APIs. Consider dumping the API with `app.create_api("path/to/file.py")` and fixing errors manually.
-- 
+Most of the caveats can be fixed manually by dumping the API with `app.create_api("path/to/file.py")` and fixing errors manually.
+
+- `src.*` imports are ignored when compiling backend routes.
+- Backend routes are strictly named after functions and cannot be defined without editing.
+- Backend route parameters, when compiled, expect values to be passed through query params. This is obviously not secure for certain cases.
+- Mentioned parameters require type annotatios
 
 #
 

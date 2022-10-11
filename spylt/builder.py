@@ -215,7 +215,6 @@ def _create_api(functions, source_file):
 def create_api(apis, source_file):
     """Messy API to check imports and function name + args and convert to a Quart app"""
     args, source, types, imports = _create_api(apis, source_file)
-    print(source)
 
     argmap = reduce(
         lambda x, y: x | y,

@@ -19,7 +19,6 @@ class Module:
         self._path = path
         self._props = {}
         self._apis = []
-        self._routes = []
         self._file = file
         self._linker = None
 
@@ -29,10 +28,9 @@ class Module:
             self._props[k] = v
         return self
 
-    def set_apis(self, *funcs, routes):
+    def set_apis(self, *funcs):
         """Set functions to work as interoping APIs (@<app>.backend is preferred)"""
         self._apis.extend(funcs)
-        self._routes.extend(routes)
         return self
 
     def create_linker(self, path: str):
@@ -67,7 +65,6 @@ class Module:
         from . import builder
 
         self._file = inspect.stack()[1][1]
-        print(self._file)
 
         api = builder.create_api(self._apis, self._file)
         with open(dump or "/tmp/spylt_api.py", "w", encoding="utf-8") as fh:
@@ -79,18 +76,11 @@ class Module:
             finally:
                 os.remove("/tmp/spylt_api.py")
 
-    def backend(self, route=None):
+    def backend(self):
         """Create a function which converts to a Sanic API route"""
 
         def wrapper(*args):
-            func_name = (
-                inspect.stack()[1]
-                .code_context[0]
-                .split(" ")[1]
-                .replace(" ", "")
-                .split("(")[0]
-            )
-            ret = self.set_apis(*args, routes=[route or f"/api/{func_name}"])
+            ret = self.set_apis(*args)
             return ret
 
         return wrapper
