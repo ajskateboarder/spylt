@@ -2,7 +2,7 @@
 
 **This project is very experimental, expect bugs and [caveats](#caveats)**
 
-**Spylt (*spilt*)** is a full-stack web framework which simplifies backend development and frontend development. Simple Python functions can be turned into web APIs which can be directly called from Svelte code **under a single codebase.**  
+**Spylt** (*pronounced spilt, combination of Svelte an Python, not the [company](https://splyt.com/)*) is a full-stack web framework which simplifies backend development and frontend development. Simple Python functions can be turned into web APIs which can be directly called from Svelte code **under a single codebase.**  
 
 No directory structure is forced, making Spylt very unopinionated and scalable when organizing code.
 
@@ -26,13 +26,13 @@ python3 -m spylt new <dir>
 
 This installs required NPM packages and creates a `rollup.config.js` for compiling Svelte to JS/CSS/HTML. This is the default config for `sveltejs/template`. You can configure Rollup to support TypeScript and SCSS. 
 
-There should also be an `src/` directory with an `App.py` and an `App.svelte`. The svelte code should have a `point` comment and a `compiled` comment. This is special syntax used by Spylt for a more seamless DX.
+There should also be an `src/` directory with an `App.py` and an `App.svelte`. The svelte code should have a `point` comment and a `compiled` comment. This is *special syntax* used by Spylt for a more seamless DX.
 
 ### `<!-- point *.py -->`
 This syntax is used for more seamless compilation when compiling Svelte code. Spylt checks this comment when compiling a Svelte file to pass any props into the built HTML.
 
 ### `<!-- compiled *.html -->`
-This comment is also checked by Spylt when "rendering" Svelte code.
+This comment is checked by Spylt when "rendering" Svelte code in an app. `app.render()` should open the file at runtime and should render the HTML file with each request.
 
 Compile the Svelte to HTML with:
 
