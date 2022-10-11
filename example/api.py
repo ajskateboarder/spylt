@@ -1,11 +1,11 @@
-from quart import Quart, request
+import requests
+from src.App import app
 
-app = Quart(__name__)
-
-
-@app.route("/api/search")
-async def search():
-    req = requests.get(
-        f"https://dummyjson.com/products/search?q={request.args.get('query', type=str)}"
+@app.interopable
+def search(query: str):
+    r = requests.get(
+        f"https://dummyjson.com/products/search?q={query}"
     )
-    return {"response": req.json()}
+    return r.json()
+
+print(app.create_api("./dump.py"))

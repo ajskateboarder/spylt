@@ -3,8 +3,9 @@ import json
 from typing import Callable
 from os.path import exists
 import inspect
+import runpy
 
-from .helpers import js_val, replace_some
+from .helpers import js_val
 
 
 _encoder = json.JSONEncoder(ensure_ascii=False)
@@ -58,23 +59,25 @@ class Module:
 
         builder.create_html(path, self._linker)
 
-    def create_api(self, path: str):
+    def create_api(self, dump=None):
         """Programmatically create a Sanic API from the functions defined"""
         from . import builder
+        self.file = inspect.stack()[1][1]
 
-        api = builder.create_api(self._apis)
-        with open(path, "w", encoding="utf-8") as fh:
+        api = builder.create_api(self._apis, self.file)
+        with open(dump or "/tmp/spylt_api.py", "w", encoding="utf-8") as fh:
             fh.write(api)
+        return runpy.run_path("/tmp/spylt_api.py")["app"] if not dump else None
 
+    @property
+    def interopable(self):
+        """Create a function which converts to a Sanic API route"""
 
-def interopable(app):
-    """Create a function which converts to a Sanic API route"""
+        def wrapper(*args):
+            ret = self.set_apis(*args)
+            return ret
 
-    def inner(func):
-        app.set_apis(func)
-        return func
-
-    return inner
+        return wrapper
 
 
 def require_svelte(path: str):

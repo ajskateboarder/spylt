@@ -1,1 +1,1 @@
-from .module import require_svelte, interopable
+from .module import require_svelte

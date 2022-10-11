@@ -1,6 +1,6 @@
 # spylt
 
-**This project is very experimental, expect bugs and caveats**
+**This project is very experimental, expect bugs and [caveats](#caveats)**
 
 **Spylt (*spilt*)** is a full-stack web framework which simplifies backend development and frontend development. Simple Python functions can be turned into web APIs which can be directly called from Svelte code **under a single codebase.**  
 
@@ -26,7 +26,13 @@ python3 -m spylt new <dir>
 
 This installs required NPM packages and creates a `rollup.config.js` for compiling Svelte to JS/CSS/HTML. This is the default config for `sveltejs/template`. You can configure Rollup to support TypeScript and SCSS. 
 
-There should also be an `src/` directory with an `App.py` and an `App.svelte`.
+There should also be an `src/` directory with an `App.py` and an `App.svelte`. The svelte code should have a `point` comment and a `compiled` comment. This is special syntax used by Spylt for a more seamless DX.
+
+### `<!-- point *.py -->`
+This syntax is used for more seamless compilation when compiling Svelte code. Spylt checks this comment when compiling a Svelte file to pass any props into the built HTML.
+
+### `<!-- compiled *.html -->`
+This comment is also checked by Spylt when "rendering" Svelte code.
 
 Compile the Svelte to HTML with:
 
@@ -34,8 +40,29 @@ Compile the Svelte to HTML with:
 python3 -m spylt html ./src/App.svelte ./index.html
 ```
 
+Building Svelte routes with APIs are as simple as this:
+
+```py
+import requests
+from spylt import require_svelte
+
+app = require_svelte("./App.svelte")
+
+@app.backend
+def search(query: str):
+    r = requests.get(f"https://dummyjson.com/products/search?q={query}")
+    return r.json()
+
+@app.frontend("/")
+def root():
+    return app.render("")
+
+print(app.create_api("./dump.py"))
+```
+
 ## Caveats
-yes
+- `src.*` imports are ignored in APIs. Consider dumping the API with `app.create_api("path/to/file.py")` and fixing errors manually.
+- 
 
 #
 

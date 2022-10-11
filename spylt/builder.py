@@ -2,14 +2,16 @@
 from itertools import chain
 from os.path import exists
 from shutil import rmtree
-from inspect import get_annotations, getsourcelines, getsource
+from inspect import get_annotations, getsourcelines
 from functools import reduce
 import os
 import re
 import runpy
 
+import black
+import isort
+
 from .module import Module
-from .imports import check_imports
 from .helpers import replace_some, flatten_dict
 
 
@@ -149,7 +151,13 @@ def _create_api(functions, source_file):
     _F, _B, _Q = "{", "}", '"'
 
     with open(source_file, encoding="utf-8") as fh:
-        imports = check_imports(fh.read())
+        third_party = [
+            i
+            for i in isort.code(
+                black.format_str(fh.read(), mode=black.Mode())
+            ).splitlines()
+            if i.find("import") != -1 and i.find("spylt") == -1 and i.find("src") == -1
+        ]
 
     for api in functions:
         source = getsourcelines(api)
@@ -185,7 +193,6 @@ def _create_api(functions, source_file):
     type_arg = flatten_dict(
         dict(list(zip(list(chain.from_iterable(source_args)), source_map["types"])))
     )
-
     if not all(x in type_arg for x in source_args[0]):
         raise RuntimeError(
             f"No types are set on arguments \"{', '.join(source_args[0])}\" "
@@ -197,12 +204,14 @@ def _create_api(functions, source_file):
         source_map["args"],
         dict(zip(source_map["names"], sources)),
         [[e[1] for e in list(s.items())] for s in source_map["types"]],
+        third_party,
     )
 
 
-def create_api(apis):
+def create_api(apis, source_file):
+    """Messy API to check imports and function name + args and convert to a Quart app"""
     _N, _Q, _NN = "\n    ", '"', "\n"
-    args, source, types = _create_api(apis)
+    args, source, types, imports = _create_api(apis, source_file)
     argmap = reduce(
         lambda x, y: x | y,
         [
@@ -212,7 +221,7 @@ def create_api(apis):
         {},
     )
 
-    QUERY = f"""
+    QUERY = f"""{_N.join(imports)}
         from quart import Quart, request
 
         app = Quart(__name__)
@@ -224,5 +233,4 @@ def create_api(apis):
         :-5
     ]
 
-    print(QUERY)
     return QUERY
