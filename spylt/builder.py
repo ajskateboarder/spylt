@@ -14,6 +14,7 @@ import isort
 from .module import Module
 from .helpers import replace_some, flatten_dict
 
+_N, _Q = "\n", '"'
 
 _REQ = [
     "@rollup/plugin-commonjs",
@@ -148,7 +149,10 @@ def create_html(out, linker):
 def _create_api(functions, source_file):
     source_map = {"names": [], "args": [], "types": []}
     sources = []
-    _F, _B, _Q = "{", "}", '"'
+    _F, _B, = (
+        "{",
+        "}",
+    )
 
     with open(source_file, encoding="utf-8") as fh:
         third_party = [
@@ -168,10 +172,10 @@ def _create_api(functions, source_file):
         for line in source[0]:
             if defined:
                 if "return" in line:
-                    ret = f"{line.strip().replace(' ', f' {_F}{_Q}response{_Q}: ', 1)}{_B}"
+                    ret = f"{' ' * (len(line.split(' ')[:-2]) - 1)} return {_F+_Q}response{_Q}: {line.split(' ')[-1].strip()}{_B}"
                     lines.append(ret)
                 else:
-                    lines.append(line.strip())
+                    lines.append(line)
             if line.startswith("def"):
                 defpoint = [
                     e.replace(",", "")
@@ -210,8 +214,9 @@ def _create_api(functions, source_file):
 
 def create_api(apis, source_file):
     """Messy API to check imports and function name + args and convert to a Quart app"""
-    _N, _Q, _NN = "\n    ", '"', "\n"
     args, source, types, imports = _create_api(apis, source_file)
+    print(source)
+
     argmap = reduce(
         lambda x, y: x | y,
         [
@@ -222,14 +227,12 @@ def create_api(apis, source_file):
     )
 
     QUERY = f"""{_N.join(imports)}
-        from quart import Quart, request
+from quart import Quart, request
 
-        app = Quart(__name__)
+app = Quart(__name__)
 
-        {_NN.join([replace_some(f"@app.route({_Q}/api/{name}{_Q}){_NN}async def {name}():{_N}        {_N.join(lines)}{_NN}", argmap) for name, lines in source.items()])}
-    """.replace(
-        "        ", ""
-    )[
+{_N.join([replace_some(f"@app.route({_Q}/api/{name}{_Q}){_N}async def {name}():{_N}{''.join(lines)}", argmap) for name, lines in source.items()])}
+    """[
         :-5
     ]
 

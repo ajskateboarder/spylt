@@ -1,7 +1,8 @@
 """Module system to import Svelte"""
 import json
-from typing import Callable
+from contextlib import contextmanager
 from os.path import exists
+import os
 import inspect
 import runpy
 
@@ -18,7 +19,8 @@ class Module:
         self._path = path
         self._props = {}
         self._apis = []
-        self.file = file
+        self._routes = []
+        self._file = file
         self._linker = None
 
     def add_props(self, **props):
@@ -27,9 +29,10 @@ class Module:
             self._props[k] = v
         return self
 
-    def set_apis(self, *funcs: Callable):
-        """Set functions to work as interoping APIs (@interop is preferred)"""
+    def set_apis(self, *funcs, routes):
+        """Set functions to work as interoping APIs (@<app>.backend is preferred)"""
         self._apis.extend(funcs)
+        self._routes.extend(routes)
         return self
 
     def create_linker(self, path: str):
@@ -62,19 +65,32 @@ class Module:
     def create_api(self, dump=None):
         """Programmatically create a Sanic API from the functions defined"""
         from . import builder
-        self.file = inspect.stack()[1][1]
 
-        api = builder.create_api(self._apis, self.file)
+        self._file = inspect.stack()[1][1]
+        print(self._file)
+
+        api = builder.create_api(self._apis, self._file)
         with open(dump or "/tmp/spylt_api.py", "w", encoding="utf-8") as fh:
             fh.write(api)
-        return runpy.run_path("/tmp/spylt_api.py")["app"] if not dump else None
 
-    @property
-    def interopable(self):
+        if not dump:
+            try:
+                return runpy.run_path("/tmp/spylt_api.py")["app"].run
+            finally:
+                os.remove("/tmp/spylt_api.py")
+
+    def backend(self, route=None):
         """Create a function which converts to a Sanic API route"""
 
         def wrapper(*args):
-            ret = self.set_apis(*args)
+            func_name = (
+                inspect.stack()[1]
+                .code_context[0]
+                .split(" ")[1]
+                .replace(" ", "")
+                .split("(")[0]
+            )
+            ret = self.set_apis(*args, routes=[route or f"/api/{func_name}"])
             return ret
 
         return wrapper

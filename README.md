@@ -57,7 +57,7 @@ def search(query: str):
 def root():
     return app.render()
 
-api = app.create_api("./dump.py")
+api = app.create_api()
 api.run()
 ```
 
