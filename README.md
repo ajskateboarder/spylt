@@ -55,9 +55,10 @@ def search(query: str):
 
 @app.frontend("/")
 def root():
-    return app.render("")
+    return app.render()
 
-print(app.create_api("./dump.py"))
+api = app.create_api("./dump.py")
+api.run()
 ```
 
 ## Caveats
