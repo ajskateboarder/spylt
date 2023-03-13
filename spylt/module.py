@@ -8,7 +8,6 @@ import runpy
 
 from .helpers import js_val
 
-
 _encoder = json.JSONEncoder(ensure_ascii=False)
 
 

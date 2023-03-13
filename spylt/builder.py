@@ -2,7 +2,13 @@
 from itertools import chain
 from os.path import exists
 from shutil import rmtree
-from inspect import get_annotations, getsourcelines
+from inspect import getsourcelines
+
+try:
+    from inspect import get_annotations
+except ImportError:
+    from get_annotations import get_annotations
+
 from functools import reduce
 import os
 import re
@@ -132,7 +138,7 @@ def create_html(out, linker):
     css = None
     if exists("./__buildcache__/bundle.js"):
         with open("./__buildcache__/bundle.js", "r", encoding="utf-8") as fh:
-            js = fh.read()
+            js = fh.read().replace('"use strict"', "")
     if exists("./__buildcache__/bundle.css"):
         with open("./__buildcache__/bundle.css", "r", encoding="utf-8") as fh:
             css = fh.read()
@@ -149,7 +155,10 @@ def create_html(out, linker):
 def _create_api(functions, source_file):
     source_map = {"names": [], "args": [], "types": []}
     sources = []
-    _F, _B, = (
+    (
+        _F,
+        _B,
+    ) = (
         "{",
         "}",
     )
@@ -167,12 +176,14 @@ def _create_api(functions, source_file):
         source = getsourcelines(api)
 
         source_map["types"].append(get_annotations(api))
+
         defined = False
         lines = []
         for line in source[0]:
             if defined:
                 if "return" in line:
-                    ret = f"{' ' * (len(line.split(' ')[:-2]) - 1)} return {_F+_Q}response{_Q}: {line.split(' ')[-1].strip()}{_B}"
+                    return_object = line.strip().split(" ", 1)[-1]
+                    ret = f"{' ' * (len(line.split(' ')[:-2]) - 1)} return {_F+_Q}response{_Q}: {return_object}{_B}"
                     lines.append(ret)
                 else:
                     lines.append(line)
@@ -215,22 +226,24 @@ def _create_api(functions, source_file):
 def create_api(apis, source_file):
     """Messy API to check imports and function name + args and convert to a Quart app"""
     args, source, types, imports = _create_api(apis, source_file)
+    req_convert = [
+        {k: f"request.args.get('{k}', type={w.__name__})" for k, w in zip(l, t)}
+        for l, t in zip(args, types)
+    ]
+    req_convert = dict((key,d[key]) for d in req_convert for key in d)
 
-    argmap = reduce(
-        lambda x, y: x | y,
-        [
-            {k: f"request.args.get('{k}', type={w.__name__})" for k, w in zip(l, t)}
-            for l, t in zip(args, types)
-        ],
-        {},
-    )
+    # argmap = reduce(
+    #     lambda x, y: x | y,
+    #     req_convert,
+    #     {},
+    # )
 
     QUERY = f"""{_N.join(imports)}
 from quart import Quart, request
 
 app = Quart(__name__)
 
-{_N.join([replace_some(f"@app.route({_Q}/api/{name}{_Q}){_N}async def {name}():{_N}{''.join(lines)}", argmap) for name, lines in source.items()])}
+{_N.join([replace_some(f"@app.route({_Q}/api/{name}{_Q}){_N}async def {name}():{_N}{''.join(lines)}", req_convert) for name, lines in source.items()])}
     """[
         :-5
     ]
