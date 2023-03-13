@@ -1,4 +1,7 @@
+"""Spylt helpers. Mostly just functions to convert objects to JS equivalents"""
 from collections.abc import MutableMapping
+
+from .exceptions import PointerNotFoundError
 
 
 def flatten_dict(d):
@@ -45,7 +48,7 @@ def find_pointer(path):
     with open(path, encoding="utf-8") as fh:
         lines = fh.readlines()
         if not "point" in lines[0]:
-            raise RuntimeError(
+            raise PointerNotFoundError(
                 "No Python file is being pointed to. "
                 "Please add a comment at the top of your Svelte code "
                 "(ex: <!-- point App.py:app -->)"

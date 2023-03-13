@@ -1,24 +1,19 @@
 """Automation tools to compile Svelte to direct HTML"""
-from itertools import chain
-from os.path import exists
-from shutil import rmtree
-from inspect import getsourcelines
-
-try:
-    from inspect import get_annotations
-except ImportError:
-    from get_annotations import get_annotations
-
-from functools import reduce
 import os
+import os.path
 import re
 import runpy
+from functools import reduce
+from inspect import get_annotations, getsourcelines
+from itertools import chain
+from shutil import rmtree
 
 import black
 import isort
 
+from .exceptions import NoRoutesDefinedError, TypesNotDefinedError
+from .helpers import flatten_dict, replace_some
 from .module import Module
-from .helpers import replace_some, flatten_dict
 
 _N, _Q = "\n", '"'
 
@@ -32,10 +27,6 @@ _REQ = [
     "rollup-plugin-terser",
     "svelte",
 ]
-
-_ROLLUP_CFG = (
-    "https://raw.githubusercontent.com/sveltejs/template/master/rollup.config.js"
-)
 
 _HTML_F = """<!DOCTYPE html>
 <html lang="en">
@@ -51,9 +42,7 @@ _HTML_F = """<!DOCTYPE html>
 
 
 def pr_exists(name):
-    if os.system(f"which {name}") == 0:
-        return True
-    return False
+    return os.system(f"which {name}") == 0
 
 
 def copy_rollup():
@@ -68,7 +57,7 @@ def copy_rollup():
 def template(directory):
     if os.path.exists(directory):
         raise FileExistsError(
-            "Directory already exists. " "Choose a directory that doesn't exist yet."
+            "Directory already exists. Choose a directory that doesn't exist yet."
         )
 
     os.mkdir(directory)
@@ -80,11 +69,11 @@ def template(directory):
             "Consider installing with NVM:\n"
             "https://github.com/nvm-sh/nvm#installing-and-updating"
         )
-    os.system("npm init --y")
-    os.system(f"npm install --save-dev {' '.join(_REQ)}")
-    os.system("npm install sirv-cli")
+    os.system("npm init --y >/dev/null")
+    os.system(f"npm install --save-dev {' '.join(_REQ)} >/dev/null")
+    os.system("npm install sirv-cli >/dev/null")
 
-    if exists("./rollup.config.js"):
+    if os.path.exists("./rollup.config.js"):
         inp = input(
             "You seem to have a Rollup config here already. "
             "Do you want to update it or leave it alone? (Y/n)"
@@ -136,10 +125,10 @@ def create_html(out, linker):
     os.system(f"npx rollup --config --input={linker} -o ./__buildcache__/bundle.js")
     js = None
     css = None
-    if exists("./__buildcache__/bundle.js"):
+    if os.path.exists("./__buildcache__/bundle.js"):
         with open("./__buildcache__/bundle.js", "r", encoding="utf-8") as fh:
-            js = fh.read().replace('"use strict"', "")
-    if exists("./__buildcache__/bundle.css"):
+            js = fh.read().replace('"use strict";', "")
+    if os.path.exists("./__buildcache__/bundle.css"):
         with open("./__buildcache__/bundle.css", "r", encoding="utf-8") as fh:
             css = fh.read()
     with open(out, "w", encoding="utf-8") as fh:
@@ -149,7 +138,10 @@ def create_html(out, linker):
             ).replace("//# sourceMappingURL=bundle.js.map", "")
         )
 
-    rmtree("./__buildcache__")
+    try:
+        rmtree("./__buildcache__")
+    except FileNotFoundError:
+        pass
 
 
 def _create_api(functions, source_file):
@@ -176,14 +168,13 @@ def _create_api(functions, source_file):
         source = getsourcelines(api)
 
         source_map["types"].append(get_annotations(api))
-
         defined = False
         lines = []
         for line in source[0]:
             if defined:
                 if "return" in line:
-                    return_object = line.strip().split(" ", 1)[-1]
-                    ret = f"{' ' * (len(line.split(' ')[:-2]) - 1)} return {_F+_Q}response{_Q}: {return_object}{_B}"
+                    return_obj = line.strip().split(" ", 1)[-1]
+                    ret = f"{' ' * (len(line.split(' ')[:-2]) - 1)}return {_F+_Q}response{_Q}: {return_obj}{_B}"
                     lines.append(ret)
                 else:
                     lines.append(line)
@@ -208,8 +199,14 @@ def _create_api(functions, source_file):
     type_arg = flatten_dict(
         dict(list(zip(list(chain.from_iterable(source_args)), source_map["types"])))
     )
+    if source_args == []:
+        raise NoRoutesDefinedError(
+            "No routes were defined on the Python backend.\n"
+            "You should define backend logic with functions using @app.backend()"
+        )
+
     if not all(x in type_arg for x in source_args[0]):
-        raise RuntimeError(
+        raise TypesNotDefinedError(
             f"No types are set on arguments \"{', '.join(source_args[0])}\" "
             "on function {source_map['names'][0]}()\n"
             "Please annotate the arguments so types can be casted correctly"
@@ -226,24 +223,28 @@ def _create_api(functions, source_file):
 def create_api(apis, source_file):
     """Messy API to check imports and function name + args and convert to a Quart app"""
     args, source, types, imports = _create_api(apis, source_file)
-    req_convert = [
-        {k: f"request.args.get('{k}', type={w.__name__})" for k, w in zip(l, t)}
-        for l, t in zip(args, types)
-    ]
-    req_convert = dict((key,d[key]) for d in req_convert for key in d)
 
-    # argmap = reduce(
-    #     lambda x, y: x | y,
-    #     req_convert,
-    #     {},
-    # )
-
+    argmap = reduce(
+        lambda x, y: x | y,
+        [
+            {k: f"request.args.get('{k}', type={w.__name__})" for k, w in zip(l, t)}
+            for l, t in zip(args, types)
+        ],
+        {},
+    )
     QUERY = f"""{_N.join(imports)}
 from quart import Quart, request
+from quart_cors import cors
 
 app = Quart(__name__)
+app = cors(app, allow_origin="*")
 
-{_N.join([replace_some(f"@app.route({_Q}/api/{name}{_Q}){_N}async def {name}():{_N}{''.join(lines)}", req_convert) for name, lines in source.items()])}
+@app.route("/")
+async def root_():
+    with open("index.html", encoding="utf-8") as fh:
+        return fh.read()
+
+{_N.join([replace_some(f"@app.route({_Q}/api/{name}{_Q}){_N}async def {name}():{_N}{''.join(lines)}", argmap) for name, lines in source.items()])}
     """[
         :-5
     ]

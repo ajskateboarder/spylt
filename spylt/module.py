@@ -1,10 +1,9 @@
 """Module system to import Svelte"""
-import json
-from contextlib import contextmanager
-from os.path import exists
-import os
 import inspect
+import json
+import os
 import runpy
+from os.path import exists
 
 from .helpers import js_val
 
@@ -59,13 +58,17 @@ class Module:
 
         builder.create_html(path, self._linker)
 
-    def create_api(self, dump=None):
+    def create_api(self, dump=None, get_string=False):
         """Programmatically create a Sanic API from the functions defined"""
+        # TODO: Make this code less bad
         from . import builder
 
         self._file = inspect.stack()[1][1]
 
         api = builder.create_api(self._apis, self._file)
+        if get_string:
+            return api
+
         with open(dump or "/tmp/spylt_api.py", "w", encoding="utf-8") as fh:
             fh.write(api)
 
@@ -76,7 +79,7 @@ class Module:
                 os.remove("/tmp/spylt_api.py")
 
     def backend(self):
-        """Create a function which converts to a Sanic API route"""
+        """Create a function which converts to a Quart API route"""
 
         def wrapper(*args):
             ret = self.set_apis(*args)
@@ -88,5 +91,5 @@ class Module:
 def require_svelte(path: str):
     """Functional importing of Svelte code"""
     if not exists(path):
-        raise RuntimeError("Svelte file doesn't exist")
+        raise FileNotFoundError("Svelte file doesn't exist")
     return Module(path, inspect.stack()[1][1])
