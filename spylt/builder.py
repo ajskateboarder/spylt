@@ -4,9 +4,14 @@ import os.path
 import re
 import runpy
 from functools import reduce
-from inspect import get_annotations, getsourcelines
+from inspect import getsourcelines
 from itertools import chain
 from shutil import rmtree
+
+try:
+    from inspect import get_annotations
+except ImportError: # 3.8 compatibility
+    from get_annotations import get_annotations
 
 import black
 import isort
@@ -135,7 +140,7 @@ def create_html(out, linker):
         fh.write(
             re.sub(
                 r"<!--(.*?)-->|\s\B", "", _HTML_F.format("" if not css else css, js)
-            ).replace("//# sourceMappingURL=bundle.js.map", "")
+            ).replace("//# sourceMappingURL=bundle.js.map", "").replace("const$", "$")
         )
 
     try:
@@ -223,15 +228,12 @@ def _create_api(functions, source_file):
 def create_api(apis, source_file):
     """Messy API to check imports and function name + args and convert to a Quart app"""
     args, source, types, imports = _create_api(apis, source_file)
+    argmap = [
+        {k: f"request.args.get('{k}', type={w.__name__})" for k, w in zip(l, t)}
+        for l, t in zip(args, types)
+    ]
+    argmap = {k: v for d in argmap for k, v in d.items()}
 
-    argmap = reduce(
-        lambda x, y: x | y,
-        [
-            {k: f"request.args.get('{k}', type={w.__name__})" for k, w in zip(l, t)}
-            for l, t in zip(args, types)
-        ],
-        {},
-    )
     QUERY = f"""{_N.join(imports)}
 from quart import Quart, request
 from quart_cors import cors

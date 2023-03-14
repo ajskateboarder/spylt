@@ -1,15 +1,11 @@
 <!-- point ./src/App.py:app -->
 <script>
-    let name
-    let greeting = ""
+    let greeting
+    let name = "Bob"
     const sayHello = () => {
-        try {
-            fetch("/api/say_hello?name=Bob")
-                .then(res => res.json())
-                .then(res => greeting = JSON.stringify(res))
-        } catch(err) {
-            greeting = err
-        }
+        fetch(`/api/say_hello?name=${name}`)
+            .then(res => res.json())
+            .then(res => greeting = JSON.stringify(res))
     }
 </script>
 <main>
