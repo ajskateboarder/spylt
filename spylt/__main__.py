@@ -5,6 +5,7 @@ from runpy import run_path
 from time import time
 
 from . import builder
+from .cli import template
 from .helpers import find_pointer
 from .module import Module
 
@@ -35,7 +36,7 @@ Available commands:
         getattr(self, args.command)()
 
     def new(self):
-        builder.template(sys.argv[2])
+        template(sys.argv[2])
 
     def html(self):
         try:

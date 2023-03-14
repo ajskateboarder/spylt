@@ -1,16 +1,12 @@
 <!-- point ./src/App.py:app -->
 <script>
+    import { say_hello } from "./App.py.js";
+
     let greeting
     let name = "Bob"
-    const sayHello = () => {
-        fetch(`/api/say_hello?name=${name}`)
-            .then(res => res.json())
-            .then(res => greeting = JSON.stringify(res))
-    }
 </script>
 <main>
     <input type="text" bind:value={name}>
-    <button on:click={sayHello}>Say hello</button>
+    <button on:click={(async function() { greeting = await say_hello(name) })()}>Say hello</button>
     <p>{greeting}</p>
 </main>
-        

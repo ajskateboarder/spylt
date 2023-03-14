@@ -3,14 +3,13 @@ import os
 import os.path
 import re
 import runpy
-from functools import reduce
 from inspect import getsourcelines
 from itertools import chain
 from shutil import rmtree
 
 try:
     from inspect import get_annotations
-except ImportError: # 3.8 compatibility
+except ImportError:  # 3.8 compatibility
     from get_annotations import get_annotations
 
 import black
@@ -21,17 +20,6 @@ from .helpers import flatten_dict, replace_some
 from .module import Module
 
 _N, _Q = "\n", '"'
-
-_REQ = [
-    "@rollup/plugin-commonjs",
-    "@rollup/plugin-node-resolve",
-    "rollup",
-    "rollup-plugin-css-only",
-    "rollup-plugin-livereload",
-    "rollup-plugin-svelte",
-    "rollup-plugin-terser",
-    "svelte",
-]
 
 _HTML_F = """<!DOCTYPE html>
 <html lang="en">
@@ -46,75 +34,6 @@ _HTML_F = """<!DOCTYPE html>
 </html>"""
 
 
-def pr_exists(name):
-    return os.system(f"which {name}") == 0
-
-
-def copy_rollup():
-    with open(
-        os.path.join(os.path.dirname(os.path.realpath(__file__)), "rollup.config.txt"),
-        encoding="utf-8",
-    ) as fh:
-        with open("./rollup.config.js", "w", encoding="utf-8") as fh_:
-            fh_.write(fh.read())
-
-
-def template(directory):
-    if os.path.exists(directory):
-        raise FileExistsError(
-            "Directory already exists. Choose a directory that doesn't exist yet."
-        )
-
-    os.mkdir(directory)
-    os.chdir(directory)
-
-    if not pr_exists("npm"):
-        raise RuntimeError(
-            "Node and NPM are not installed.\n"
-            "Consider installing with NVM:\n"
-            "https://github.com/nvm-sh/nvm#installing-and-updating"
-        )
-    os.system("npm init --y >/dev/null")
-    os.system(f"npm install --save-dev {' '.join(_REQ)} >/dev/null")
-    os.system("npm install sirv-cli >/dev/null")
-
-    if os.path.exists("./rollup.config.js"):
-        inp = input(
-            "You seem to have a Rollup config here already. "
-            "Do you want to update it or leave it alone? (Y/n)"
-        )
-        if inp in ("N", "n"):
-            return
-    copy_rollup()
-    os.mkdir("src")
-    with open("src/App.svelte", "w", encoding="utf-8") as fh:
-        fh.write(
-            """<!-- point ./src/App.py:app -->
-<script>
-    export let text
-    setTimeout(() => text = "Hello world!", 5000)
-</script>
-<main>
-    <p>{text}</p>
-</main>
-        """
-        )
-    with open("src/App.py", "w", encoding="utf-8") as fh:
-        fh.write(
-            """from spylt import require_svelte
-
-app = require_svelte("./src/App.svelte")
-app.add_props(text="Loading...")
-        """
-        )
-
-    print(
-        "* Project initialized successfully! *\n"
-        "Now you can setup a simple project and run: "
-        "`python3 -m spylt build`"
-    )
-
-
 def create_link(inp, out):
     path, instance = inp.split(":")
 
@@ -127,7 +46,9 @@ def create_link(inp, out):
 
 
 def create_html(out, linker):
-    os.system(f"npx rollup --config --input={linker} -o ./__buildcache__/bundle.js")
+    os.system(
+        f"npx rollup --config --input={linker} -o ./__buildcache__/bundle.js >/dev/null"
+    )
     js = None
     css = None
     if os.path.exists("./__buildcache__/bundle.js"):
@@ -138,9 +59,9 @@ def create_html(out, linker):
             css = fh.read()
     with open(out, "w", encoding="utf-8") as fh:
         fh.write(
-            re.sub(
-                r"<!--(.*?)-->|\s\B", "", _HTML_F.format("" if not css else css, js)
-            ).replace("//# sourceMappingURL=bundle.js.map", "").replace("const$", "$")
+            re.sub(r"<!--(.*?)-->|\s\B", "", _HTML_F.format("" if not css else css, js))
+            .replace("//# sourceMappingURL=bundle.js.map", "")
+            .replace("const$", "$")
         )
 
     try:
@@ -234,7 +155,8 @@ def create_api(apis, source_file):
     ]
     argmap = {k: v for d in argmap for k, v in d.items()}
 
-    QUERY = f"""{_N.join(imports)}
+    QUERY = (
+        f"""{_N.join(imports)}
 from quart import Quart, request
 from quart_cors import cors
 
@@ -248,7 +170,11 @@ async def root_():
 
 {_N.join([replace_some(f"@app.route({_Q}/api/{name}{_Q}){_N}async def {name}():{_N}{''.join(lines)}", argmap) for name, lines in source.items()])}
     """[
-        :-5
-    ]
+            :-5
+        ].replace(
+            "from .module import Module\n", ""
+        )
+        + "\napp.run()"
+    )
 
     return QUERY
