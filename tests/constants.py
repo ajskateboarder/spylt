@@ -1,12 +1,12 @@
 PY_MODULE = """from spylt import require_svelte
 
-app = require_svelte("./App.svelte")
+app = require_svelte("{tempdir}/App.svelte")
 
 
 @app.backend()
 def say_hello(name: str):
-    return f"Hello {name}"
-"""
+    return f"Hello {{name}}"
+""".format
 
 SVELTE_MODULE = """<!-- point ./App.py:app -->
 <script>

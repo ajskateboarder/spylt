@@ -42,12 +42,14 @@ def create_link(inp, out):
 
     if inst == []:
         raise RuntimeError(f"Instance of module '{instance}' does not exist.")
-    lib[inst[0]].create_linker(out)
+    module: Module = lib[inst[0]]
+
+    return module.create_linker()
 
 
-def create_html(out, linker):
+def create_html(linker):
     os.system(
-        f"npx rollup --config --input={linker} -o ./__buildcache__/bundle.js >/dev/null"
+        f'echo "{linker}" | npx rollup --silent --config --file ./__buildcache__/bundle.js >/dev/null'
     )
     js = None
     css = None
@@ -57,17 +59,16 @@ def create_html(out, linker):
     if os.path.exists("./__buildcache__/bundle.css"):
         with open("./__buildcache__/bundle.css", "r", encoding="utf-8") as fh:
             css = fh.read()
-    with open(out, "w", encoding="utf-8") as fh:
-        fh.write(
-            re.sub(r"<!--(.*?)-->|\s\B", "", _HTML_F.format("" if not css else css, js))
-            .replace("//# sourceMappingURL=bundle.js.map", "")
-            .replace("const$", "$")
-        )
 
     try:
         rmtree("./__buildcache__")
     except FileNotFoundError:
         pass
+    return (
+        re.sub(r"<!--(.*?)-->|\s\B", "", _HTML_F.format("" if not css else css, js))
+        .replace("//# sourceMappingURL=bundle.js.map", "")
+        .replace("const$", "$")
+    )
 
 
 def _create_api(functions, source_file):

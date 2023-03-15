@@ -21,7 +21,6 @@ class CommandLine:
 
 Available commands:
    new:      Initialize a new Spylt project
-   html:     Compile Svelte code to HTML
    build:    Compile Spylt backend module and Svelte code
 """,
         )
@@ -38,23 +37,14 @@ Available commands:
     def new(self):
         template(sys.argv[2])
 
-    def html(self):
-        try:
-            start = time()
-            print(f"Compiling {sys.argv[2]} to {sys.argv[3]}...")
-            pointer = find_pointer(sys.argv[2])
-            builder.create_link(pointer, sys.argv[3])
-            builder.create_html(sys.argv[3], sys.argv[3])
-            end = time()
-            print(f"Finished in {end - start:.2f}")
-        except IndexError:
-            sys.exit("Required arguments: <path to svelte> <path to html>")
-
     def build(self):
+        if len(sys.argv) != 4:
+            sys.exit(1)
+
         path = sys.argv[2]
         app_context = run_path(f"{path}.py")
         app = [v for v in app_context.values() if isinstance(v, Module)][0]
-        api_string = app.create_api(get_string=True)
+        api_string = app.create_api()
 
         # There's some strange lines coming from module so trim it
         with open("main.py", "w", encoding="utf-8") as fh:
@@ -62,8 +52,11 @@ Available commands:
             fh.write("\n".join(api_string.split("\n")[7:]))
 
         pointer = find_pointer(f"{path}.svelte")
-        builder.create_link(pointer, "main.js")
-        builder.create_html("index.html", "main.js")
+        linker_code = builder.create_link(pointer, "main.js")
+        html_output = builder.create_html(linker_code)
+
+        with open(sys.argv[3], "w", encoding="utf-8") as fh:
+            fh.write(html_output)
 
 
 CommandLine()
