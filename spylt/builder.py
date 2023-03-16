@@ -1,11 +1,15 @@
-"""Automation tools to compile Svelte to direct HTML"""
+"""
+Automation tools to compile Svelte to direct HTML
+and compile Spylt functions to APIs
+"""
 import os
 import os.path
 import re
 import runpy
-from inspect import getsourcelines
 from itertools import chain
 from shutil import rmtree
+
+from inspect import getsourcelines
 
 try:
     from inspect import get_annotations
@@ -20,6 +24,10 @@ from .helpers import flatten_dict, replace_some
 from .module import Module
 
 _N, _Q = "\n", '"'
+_F, _B = (
+    "{",
+    "}",
+)
 
 _HTML_F = """<!DOCTYPE html>
 <html lang="en">
@@ -34,7 +42,8 @@ _HTML_F = """<!DOCTYPE html>
 </html>"""
 
 
-def create_link(inp, out):
+def create_link(inp):
+    """Creates an app initializer using only a reference to a Python namespace"""
     path, instance = inp.split(":")
 
     lib = runpy.run_path(path)
@@ -74,13 +83,6 @@ def create_html(linker):
 def _create_api(functions, source_file):
     source_map = {"names": [], "args": [], "types": []}
     sources = []
-    (
-        _F,
-        _B,
-    ) = (
-        "{",
-        "}",
-    )
 
     with open(source_file, encoding="utf-8") as fh:
         third_party = [
@@ -156,7 +158,7 @@ def create_api(apis, source_file):
     ]
     argmap = {k: v for d in argmap for k, v in d.items()}
 
-    QUERY = (
+    api_string = (
         f"""{_N.join(imports)}
 from quart import Quart, request
 from quart_cors import cors
@@ -178,4 +180,4 @@ async def root_():
         + "\napp.run()"
     )
 
-    return QUERY
+    return api_string

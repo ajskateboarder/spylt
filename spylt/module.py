@@ -1,8 +1,6 @@
 """Module system to import Svelte"""
 import inspect
 import json
-import os
-import runpy
 from os.path import exists
 
 from .helpers import js_val

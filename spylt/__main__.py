@@ -2,7 +2,6 @@
 import argparse
 import sys
 from runpy import run_path
-from time import time
 
 from . import builder
 from .cli import template
@@ -52,7 +51,7 @@ Available commands:
             fh.write("\n".join(api_string.split("\n")[7:]))
 
         pointer = find_pointer(f"{path}.svelte")
-        linker_code = builder.create_link(pointer, "main.js")
+        linker_code = builder.create_link(pointer)
         html_output = builder.create_html(linker_code)
 
         with open(sys.argv[3], "w", encoding="utf-8") as fh:
