@@ -38,6 +38,8 @@ cd <dir>
 ## Caveats
 Most of the caveats can be fixed manually by dumping the API with `app.create_api("path/to/file.py")` and fixing errors manually.
 
+- Using multiple parameters for functions creates completely wrong code
+
 - `src.*` imports are ignored when compiling backend routes
 
 - Backend routes are strictly named after functions and cannot be defined without editing
