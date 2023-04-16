@@ -32,17 +32,22 @@ python3 -m spylt new <dir>
 cd <dir>
 ```
 
+Make any changes to the application code and build it:
 
-
+```bash
+python3 -m spylt build src/App index.html
+# start the server
+python3 main.py
+```
 
 ## Caveats
-Most of the caveats can be fixed manually by dumping the API with `app.create_api("path/to/file.py")` and fixing errors manually.
+Most of the caveats can be fixed manually by dumping the API by fixing errors manually.
 
-- Using multiple parameters for functions creates completely wrong code
+- **Using multiple parameters for functions creates completely wrong code**
 
-- `src.*` imports are ignored when compiling backend routes
+- `src.*` imports are ignored when compiling backend routes (I think)
 
-- Backend routes are strictly named after functions and cannot be defined without editing
+- Backend routes are strictly named after functions
 
 - Backend route parameters, when compiled, expect values to be passed through query params. This is obviously not secure for certain cases. (Support for POSTing can be added in the future)
 
