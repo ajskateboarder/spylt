@@ -1,3 +1,4 @@
 black
 isort
 quart
+quart_cors

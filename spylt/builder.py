@@ -173,11 +173,11 @@ async def root_():
 
 {_N.join([replace_some(f"@app.route({_Q}/api/{name}{_Q}){_N}async def {name}():{_N}{''.join(lines)}", argmap) for name, lines in source.items()])}
     """[
-            :-5
+            :-4
         ].replace(
             "from .module import Module\n", ""
         )
-        + "\napp.run()"
+        + "\napp.run()\n"
     )
 
     return api_string

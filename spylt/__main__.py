@@ -48,7 +48,7 @@ Available commands:
         # There's some strange lines coming from module so trim it
         with open("main.py", "w", encoding="utf-8") as fh:
             print(api_string.split("\n"))
-            fh.write("\n".join(api_string.split("\n")[7:]))
+            fh.write("\n".join(api_string.split("\n")[6:]))
 
         pointer = find_pointer(f"{path}.svelte")
         linker_code = builder.create_link(pointer)
