@@ -2,7 +2,7 @@
 Automation tools to compile Svelte to direct HTML
 and compile Spylt functions to APIs
 """
-import os
+import subprocess
 import os.path
 import re
 import runpy
@@ -57,8 +57,9 @@ def create_link(inp):
 
 
 def create_html(linker):
-    os.system(
-        f'echo "{linker}" | npx rollup --silent --config --file ./__buildcache__/bundle.js >/dev/null'
+    subprocess.run(
+        ["echo", linker, "|", "npx rollup --silent --config --file ./__buildcache__/bundle.js >/dev/null"],
+        shell=False
     )
     js = None
     css = None
