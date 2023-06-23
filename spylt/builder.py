@@ -2,8 +2,11 @@
 Automation tools to compile Svelte to direct HTML
 and compile Spylt functions to APIs
 """
-import subprocess
-import os.path
+# This is to inspect for types in _create_api()
+import builtins
+import typing
+
+import os
 import re
 import runpy
 from itertools import chain
@@ -18,6 +21,7 @@ except ImportError:  # 3.8 compatibility
 
 import black
 import isort
+import pylint
 
 from .exceptions import NoRoutesDefinedError, TypesNotDefinedError
 from .helpers import flatten_dict, replace_some
@@ -57,9 +61,15 @@ def create_link(inp):
 
 
 def create_html(linker):
-    subprocess.run(
-        ["echo", linker, "|", "npx rollup --silent --config --file ./__buildcache__/bundle.js >/dev/null"],
-        shell=False
+    os.system(
+        " ".join(
+            [
+                "echo",
+                f'"{linker}"',
+                "|",
+                "npx rollup --silent --config --file ./__buildcache__/bundle.js >/dev/null 2>&1",
+            ]
+        ),
     )
     js = None
     css = None
@@ -69,11 +79,7 @@ def create_html(linker):
     if os.path.exists("./__buildcache__/bundle.css"):
         with open("./__buildcache__/bundle.css", "r", encoding="utf-8") as fh:
             css = fh.read()
-
-    try:
-        rmtree("./__buildcache__")
-    except FileNotFoundError:
-        pass
+    rmtree("./__buildcache__", ignore_errors=True)
     return (
         re.sub(r"<!--(.*?)-->|\s\B", "", _HTML_F.format("" if not css else css, js))
         .replace("//# sourceMappingURL=bundle.js.map", "")
@@ -105,6 +111,12 @@ def _create_api(functions, source_file):
                 if "return" in line:
                     return_obj = line.strip().split(" ", 1)[-1]
                     ret = f"{' ' * (len(line.split(' ')[:-2]) - 1)}return {_F+_Q}response{_Q}: {return_obj}{_B}"
+                    spaces = len(ret.split("return")[0])
+
+                    if 4 % spaces != 0:
+                        ret = (" " * (4 * round(spaces / 4))) + ret.strip()
+                    print(ret)
+
                     lines.append(ret)
                 else:
                     lines.append(line)
@@ -116,6 +128,7 @@ def _create_api(functions, source_file):
                     .replace(")", " ")
                     .replace(":", "")
                     .split(" ")[1:-1]
+                    if e not in [*dir(typing), *dir(builtins)] and e not in ("", "->")
                 ]
                 source_map["names"].append(defpoint[0])
                 source_map["args"].append(defpoint[1:])
@@ -123,7 +136,11 @@ def _create_api(functions, source_file):
         sources.append(lines)
 
     source_args = [
-        [k for k in e if not k in ("int", "str") and k != ""]
+        [
+            k
+            for k in e
+            if k not in [*dir(typing), *dir(builtins)] and k not in ("", "->")
+        ]
         for e in source_map["args"]
     ]
     type_arg = flatten_dict(
@@ -148,6 +165,31 @@ def _create_api(functions, source_file):
         [[e[1] for e in list(s.items())] for s in source_map["types"]],
         third_party,
     )
+
+
+def create_interface(apis, source_file):
+    args, source, types, imports = _create_api(apis, source_file)
+    typemap = {
+        "str": "string",
+        "list": "any[]",
+        "int": "number",
+        "bool": "boolean"
+    }
+
+    for route, args, types in list(zip(source.keys(), args, types)):
+        types_ = [typemap.get(typ.__name__, "any") for typ in types[:-1]]
+        return_type = typemap.get(types[-1].__name__, "any")
+        __B = "\n"
+        print(
+            f"""/**
+{__B.join([f" * @param {{{typ_}}} {arg}" for typ_, arg in zip(types_, args)])}
+ * @returns {return_type}
+ */
+async function {route}({', '.join(args)}) {{
+    const res = await fetch(`/api/{route}?{'&'.join(list(map(lambda x: x + "=${" + x + "}", args)))}`)
+    return await res.json()
+}}"""
+        )
 
 
 def create_api(apis, source_file):

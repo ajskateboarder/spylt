@@ -37,24 +37,23 @@ Available commands:
         template(sys.argv[2])
 
     def build(self):
-        if len(sys.argv) != 4:
+        if len(sys.argv) != 3:
             sys.exit(1)
 
-        path = sys.argv[2]
-        app_context = run_path(f"{path}.py")
+        app_context = run_path(f"src/App.py")
         app = [v for v in app_context.values() if isinstance(v, Module)][0]
         api_string = app.create_api()
 
         # There's some strange lines coming from module so trim it
         with open("main.py", "w", encoding="utf-8") as fh:
-            print(api_string.split("\n"))
             fh.write("\n".join(api_string.split("\n")[6:]))
 
-        pointer = find_pointer(f"{path}.svelte")
+        pointer = find_pointer(f"src/App.svelte")
         linker_code = builder.create_link(pointer)
         html_output = builder.create_html(linker_code)
+        app.create_interface()
 
-        with open(sys.argv[3], "w", encoding="utf-8") as fh:
+        with open(sys.argv[2], "w", encoding="utf-8") as fh:
             fh.write(html_output)
 
 

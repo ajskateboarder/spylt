@@ -12,10 +12,6 @@ REQUIREMENTS = [
 ]
 
 
-def pr_exists(name):
-    return os.system(f"which {name}") == 0
-
-
 def copy_rollup():
     with open(
         os.path.join(os.path.dirname(os.path.realpath(__file__)), "rollup.config.txt"),
@@ -34,7 +30,7 @@ def template(directory):
     os.mkdir(directory)
     os.chdir(directory)
 
-    if not pr_exists("npm"):
+    if not os.system(f"which npm") == 0:
         raise RuntimeError(
             "Node and NPM are not installed.\n"
             "Consider installing with NVM:\n"
@@ -42,7 +38,6 @@ def template(directory):
         )
     os.system("npm init --y >/dev/null")
     os.system(f"npm install --save-dev {' '.join(REQUIREMENTS)} >/dev/null")
-    os.system("npm install sirv-cli >/dev/null")
 
     if os.path.exists("./rollup.config.js"):
         inp = input(
@@ -77,5 +72,5 @@ app.add_props(text="Loading...")
     print(
         "* Project initialized successfully! *\n"
         "Now you can setup a simple project and run: "
-        "`python3 -m spylt build`"
+        "`python3 -m spylt build <output file>"
     )

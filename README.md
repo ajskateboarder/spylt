@@ -4,7 +4,7 @@
 
 **Spylt** (*pronounced spilt, combination of Svelte and Python*) is a connector for Python HTTP backends and Svelte frontends. Simple Python functions can be turned into web APIs which can be directly called from Svelte code **under a single codebase.**
 
-Spylt can currently be used for SPAs, but multi-page support can definitely be added.
+Spylt can currently be used for SPAs, ~~but multi-page support can definitely be added.~~
 
 ## Why?
 
@@ -41,9 +41,12 @@ python3 main.py
 ```
 
 ## Caveats
+
 Most of the caveats can be fixed manually by dumping the API by fixing errors manually.
 
 - **Using multiple parameters for functions creates completely wrong code**
+
+- **Return statements must be on one line.** If you have list comprehensions, save them to a seperate variable before returning
 
 - `src.*` imports are ignored when compiling backend routes (I think)
 
