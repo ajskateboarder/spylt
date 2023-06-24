@@ -9,7 +9,7 @@ import os
 import spylt
 from spylt.module import Module
 from spylt import builder
-from spylt.cli import REQUIREMENTS
+from spylt.cli.helpers import REQUIREMENTS
 
 from tests.constants import PY_MODULE, SVELTE_MODULE
 

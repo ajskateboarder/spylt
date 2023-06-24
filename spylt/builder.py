@@ -1,16 +1,23 @@
 """
 Automation tools to compile Svelte to direct HTML
 and compile Spylt functions to APIs
+
+Prefer to use Module instances or :func:`require_svelte <spylt.module.require_svelte>`
 """
+from __future__ import annotations
+
 # This is to inspect for types in _create_api()
 import builtins
 import typing
+
+from typing import Callable
 
 import os
 import re
 import runpy
 from itertools import chain
 from shutil import rmtree
+from shlex import quote
 
 from inspect import getsourcelines
 
@@ -21,7 +28,6 @@ except ImportError:  # 3.8 compatibility
 
 import black
 import isort
-import pylint
 
 from .exceptions import NoRoutesDefinedError, TypesNotDefinedError
 from .helpers import flatten_dict, replace_some
@@ -41,13 +47,26 @@ _HTML_F = """<!DOCTYPE html>
     <style>{}</style>
 </head>
 <body>
-    <script defer>{}</script>
+    <script>
+        function fetchSync(url) {{
+            const xhr = new XMLHttpRequest();
+            xhr.open('GET', url, false);
+            xhr.send();
+
+            if (xhr.status === 200) {{
+                return JSON.parse(xhr.responseText);
+            }} else {{
+                throw new Error('Failed to fetch data');
+            }}
+        }}
+    </script>
+    <script>{}</script>
 </body>
 </html>"""
 
 
-def create_link(inp):
-    """Creates an app initializer using only a reference to a Python namespace"""
+def create_link(inp: str) -> str:
+    """Creates an app initializer (JavaScript) using a reference to a Python namespace"""
     path, instance = inp.split(":")
 
     lib = runpy.run_path(path)
@@ -60,14 +79,16 @@ def create_link(inp):
     return module.create_linker()
 
 
-def create_html(linker):
+def create_html(linker: str) -> str:
+    """Create HTML from """
     os.system(
         " ".join(
             [
                 "echo",
-                f'"{linker}"',
+                quote(linker),
                 "|",
-                "npx rollup --silent --config --file ./__buildcache__/bundle.js >/dev/null 2>&1",
+                "npx rollup --silent --config --file ./__buildcache__/bundle.js",
+                ">/dev/null 2>/dev/null"
             ]
         ),
     )
@@ -84,11 +105,12 @@ def create_html(linker):
         re.sub(r"<!--(.*?)-->|\s\B", "", _HTML_F.format("" if not css else css, js))
         .replace("//# sourceMappingURL=bundle.js.map", "")
         .replace("const$", "$")
+        .replace("function$", "function $")
     )
 
 
-def _create_api(functions, source_file):
-    source_map = {"names": [], "args": [], "types": []}
+def _create_api(functions: list[Callable], source_file: str):
+    source_map = {"names": [], "args": [], "types": [], "docs": []}
     sources = []
 
     with open(source_file, encoding="utf-8") as fh:
@@ -102,6 +124,7 @@ def _create_api(functions, source_file):
 
     for api in functions:
         source = getsourcelines(api)
+        source_map["docs"].append(api.__doc__)
 
         source_map["types"].append(get_annotations(api))
         defined = False
@@ -115,7 +138,6 @@ def _create_api(functions, source_file):
 
                     if 4 % spaces != 0:
                         ret = (" " * (4 * round(spaces / 4))) + ret.strip()
-                    print(ret)
 
                     lines.append(ret)
                 else:
@@ -164,11 +186,13 @@ def _create_api(functions, source_file):
         dict(zip(source_map["names"], sources)),
         [[e[1] for e in list(s.items())] for s in source_map["types"]],
         third_party,
+        source_map["docs"]
     )
 
 
-def create_interface(apis, source_file):
-    args, source, types, imports = _create_api(apis, source_file)
+def create_interface(apis: list[Callable], source_file: str) -> list[str]:
+    """Create a typed JavaScript interface for a Spylt API"""
+    args, source, types, _, docs = _create_api(apis, source_file)
     typemap = {
         "str": "string",
         "list": "any[]",
@@ -176,25 +200,30 @@ def create_interface(apis, source_file):
         "bool": "boolean"
     }
 
-    for route, args, types in list(zip(source.keys(), args, types)):
+    javascripts = []
+    for route, args, types, doc in zip(source.keys(), args, types, docs):
         types_ = [typemap.get(typ.__name__, "any") for typ in types[:-1]]
         return_type = typemap.get(types[-1].__name__, "any")
-        __B = "\n"
-        print(
+
+        javascripts.append(
             f"""/**
-{__B.join([f" * @param {{{typ_}}} {arg}" for typ_, arg in zip(types_, args)])}
- * @returns {return_type}
+ * {doc}
+{_N.join([f" * @param {{{typ_}}} {arg}" for typ_, arg in zip(types_, args)])}
+ * @returns {{{return_type}}}
  */
-async function {route}({', '.join(args)}) {{
-    const res = await fetch(`/api/{route}?{'&'.join(list(map(lambda x: x + "=${" + x + "}", args)))}`)
-    return await res.json()
+export function {route}({', '.join(args)}) {{
+    const res = fetchSync(`/api/{route}?{'&'.join(list(map(lambda x: x + "=${" + x + "}", args)))}`)
+    return res.response
 }}"""
         )
 
+    return javascripts
 
-def create_api(apis, source_file):
+
+def create_api(apis: list[Callable], source_file: str) -> str:
     """Messy API to check imports and function name + args and convert to a Quart app"""
-    args, source, types, imports = _create_api(apis, source_file)
+    args, source, types, imports, _ = _create_api(apis, source_file)
+
     argmap = [
         {k: f"request.args.get('{k}', type={w.__name__})" for k, w in zip(l, t)}
         for l, t in zip(args, types)
@@ -219,6 +248,8 @@ async def root_():
             :-4
         ].replace(
             "from .module import Module\n", ""
+        ).replace(
+            "from .helpers import template\n", ""
         )
         + "\napp.run()\n"
     )

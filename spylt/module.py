@@ -68,7 +68,8 @@ class Module:
 
         self._file = inspect.stack()[1][1]
 
-        builder.create_interface(self._apis, self._file)
+        interface = builder.create_interface(self._apis, self._file)
+        return "\n\n".join(interface)
 
     def backend(self):
         """Create a function which converts to a Quart API route"""
