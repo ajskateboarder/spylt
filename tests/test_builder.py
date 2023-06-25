@@ -9,7 +9,7 @@ import os
 import spylt
 from spylt.module import Module
 from spylt import builder
-from spylt.cli.helpers import REQUIREMENTS
+from spylt.cli import REQUIREMENTS
 
 from tests.constants import PY_MODULE, SVELTE_MODULE
 
@@ -40,7 +40,10 @@ def test_create_link():
             error_output = err.stderr
         # Check if Node complains about .svelte file extension in linker
         # which indicates a syntactically correct JS file
-        assert "node:internal/errors:490" in error_output
+        assert (
+            "node:internal/errors:490" in error_output
+            or "node:internal/errors:478" in error_output
+        )
 
 
 def test_create_html():
@@ -50,9 +53,9 @@ def test_create_html():
         write_mock_file(tempdir / "App.py", PY_MODULE(tempdir=tempdir))
         write_mock_file(tempdir / "App.svelte", SVELTE_MODULE)
         linker_code = builder.create_link(f"{tempdir / 'App.py'}:app")
-        rollup_config = (Path(spylt.__file__).parent / "rollup.config.txt").read_text(
-            "utf-8"
-        )
+        rollup_config = (
+            Path(spylt.__file__).parent / "rollup.config.js.txt"
+        ).read_text("utf-8")
         with open(tempdir / "rollup.config.js", "w", encoding="utf-8") as fh:
             fh.write(rollup_config)
         assert (tempdir / "rollup.config.js").exists()
@@ -74,12 +77,15 @@ def test__create_api():
         # Required to import the module with runpy
         write_mock_file(tempdir / "App.svelte", SVELTE_MODULE)
         module: Module = runpy.run_path(str(tempdir / "App.py"))["app"]
+        apis = module._apis  # pylint:disable=W0212
 
-        _, source, _, imports = builder._create_api(  # pylint:disable=W0212
-            module._apis, tempdir / "App.py"  # pylint:disable=W0212
+        _, source, _, imports, docs = builder._create_api(  # pylint:disable=W0212
+            apis, tempdir / "App.py"
         )
         assert len(imports) == 0
         assert len(source.values()) == 1
+        assert docs[0] == apis[0].__doc__
+
         # Check if the generated code has the same return value
         # should convert something like f"Hello {name}" to {"response": f"Hello {name}"}
         return_obj = (

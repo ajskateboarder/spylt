@@ -4,8 +4,6 @@
 
 **Spylt** (*pronounced spilt, combination of Svelte and Python*) is a connector for Python HTTP backends and Svelte frontends. Simple Python functions can be turned into web APIs which can be directly called from Svelte code **under a single codebase.**
 
-Spylt can currently be used for SPAs, ~~but multi-page support can definitely be added.~~
-
 ## Why?
 
 Normally, if you wanted to combine an API and a frontend framework, you would have to separate the apps into different codebases and different repositories. 

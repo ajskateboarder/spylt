@@ -4,7 +4,8 @@ app = require_svelte("{tempdir}/App.svelte")
 
 
 @app.backend()
-def say_hello(name: str):
+def say_hello(name: str) -> str:
+    '''Says hello to the user'''
     return f"Hello {{name}}"
 """.format
 

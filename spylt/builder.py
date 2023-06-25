@@ -10,7 +10,7 @@ from __future__ import annotations
 import builtins
 import typing
 
-from typing import Callable
+from typing import Callable, Any
 
 import os
 import re
@@ -22,7 +22,7 @@ from shlex import quote
 from inspect import getsourcelines
 
 try:
-    from inspect import get_annotations
+    from inspect import get_annotations  # type: ignore
 except ImportError:  # 3.8 compatibility
     from get_annotations import get_annotations
 
@@ -80,7 +80,7 @@ def create_link(inp: str) -> str:
 
 
 def create_html(linker: str) -> str:
-    """Create HTML from """
+    """Create HTML from"""
     os.system(
         " ".join(
             [
@@ -88,7 +88,7 @@ def create_html(linker: str) -> str:
                 quote(linker),
                 "|",
                 "npx rollup --silent --config --file ./__buildcache__/bundle.js",
-                ">/dev/null 2>/dev/null"
+                ">/dev/null 2>/dev/null",
             ]
         ),
     )
@@ -109,16 +109,16 @@ def create_html(linker: str) -> str:
     )
 
 
-def _create_api(functions: list[Callable], source_file: str):
-    source_map = {"names": [], "args": [], "types": [], "docs": []}
+def _create_api(functions: list[Callable], source_file: str) -> Any:
+    # I'm not going to pay too much attention to types here since this is mostly stable code
+    source_map: Any = {"names": [], "args": [], "types": [], "docs": []}
     sources = []
 
     with open(source_file, encoding="utf-8") as fh:
+        data = fh.read()
         third_party = [
             i
-            for i in isort.code(
-                black.format_str(fh.read(), mode=black.Mode())
-            ).splitlines()
+            for i in isort.code(black.format_str(data, mode=black.Mode())).splitlines()
             if i.find("import") != -1 and i.find("spylt") == -1 and i.find("src") == -1
         ]
 
@@ -127,18 +127,21 @@ def _create_api(functions: list[Callable], source_file: str):
         source_map["docs"].append(api.__doc__)
 
         source_map["types"].append(get_annotations(api))
+
         defined = False
         lines = []
         for line in source[0]:
             if defined:
                 if "return" in line:
                     return_obj = line.strip().split(" ", 1)[-1]
-                    ret = f"{' ' * (len(line.split(' ')[:-2]) - 1)}return {_F+_Q}response{_Q}: {return_obj}{_B}"
-                    spaces = len(ret.split("return")[0])
+                    pandas_json = (
+                        '.to_dict(orient="records")'
+                        if "pandas.core.frame.DataFrame"
+                        in repr(get_annotations(api)["return"])
+                        else ""
+                    )
 
-                    if 4 % spaces != 0:
-                        ret = (" " * (4 * round(spaces / 4))) + ret.strip()
-
+                    ret = f"{line.split('return')[0]}return {_F+_Q}response{_Q}: {return_obj}{pandas_json}{_B}"
                     lines.append(ret)
                 else:
                     lines.append(line)
@@ -150,7 +153,7 @@ def _create_api(functions: list[Callable], source_file: str):
                     .replace(")", " ")
                     .replace(":", "")
                     .split(" ")[1:-1]
-                    if e not in [*dir(typing), *dir(builtins)] and e not in ("", "->")
+                    if e not in [*dir(typing), *dir(builtins), "", "->"]
                 ]
                 source_map["names"].append(defpoint[0])
                 source_map["args"].append(defpoint[1:])
@@ -158,52 +161,61 @@ def _create_api(functions: list[Callable], source_file: str):
         sources.append(lines)
 
     source_args = [
-        [
-            k
-            for k in e
-            if k not in [*dir(typing), *dir(builtins)] and k not in ("", "->")
-        ]
+        [k for k in e if k not in [*dir(typing), *dir(builtins), "", "->"]]
         for e in source_map["args"]
     ]
     type_arg = flatten_dict(
         dict(list(zip(list(chain.from_iterable(source_args)), source_map["types"])))
     )
     if source_args == []:
-        raise NoRoutesDefinedError(
-            "No routes were defined on the Python backend.\n"
-            "You should define backend logic with functions using @app.backend()"
-        )
+        raise NoRoutesDefinedError()
+        # "No routes were defined on the Python backend.\n"
+        # "You should define backend logic with functions using @app.backend()"
 
     if not all(x in type_arg for x in source_args[0]):
-        raise TypesNotDefinedError(
-            f"No types are set on arguments \"{', '.join(source_args[0])}\" "
-            "on function {source_map['names'][0]}()\n"
-            "Please annotate the arguments so types can be casted correctly"
-        )
+        raise TypesNotDefinedError()
+        # f"No types are set on arguments \"{', '.join(source_args[0])}\" "
+        # "on function {source_map['names'][0]}()\n"
+        # "Please annotate the arguments so types can be casted correctly"
 
     return (
         source_map["args"],
         dict(zip(source_map["names"], sources)),
         [[e[1] for e in list(s.items())] for s in source_map["types"]],
         third_party,
-        source_map["docs"]
+        source_map["docs"],
     )
 
 
-def create_interface(apis: list[Callable], source_file: str) -> list[str]:
-    """Create a typed JavaScript interface for a Spylt API"""
+def create_interface(apis: list[Callable], source_file: str) -> tuple[list[str], bool]:
+    """
+    Create a typed JavaScript interface for a Spylt API.
+    This also suggests whether to copy dataframe-js files
+    """
     args, source, types, _, docs = _create_api(apis, source_file)
+
     typemap = {
         "str": "string",
         "list": "any[]",
         "int": "number",
-        "bool": "boolean"
+        "bool": "boolean",
+        "DataFrame": "DataFrame",
     }
 
     javascripts = []
+    suggest_dframe = False
+
+    frames = list(
+        map(lambda typ: "pandas.core.frame.DataFrame" in repr(typ[-1]), types)
+    )
+    if any(frames):
+        javascripts.append('import { DataFrame } from "dataframe-js"')
+        suggest_dframe = True
+
     for route, args, types, doc in zip(source.keys(), args, types, docs):
         types_ = [typemap.get(typ.__name__, "any") for typ in types[:-1]]
         return_type = typemap.get(types[-1].__name__, "any")
+        is_pandas = "pandas.core.frame.DataFrame" in repr(types[-1])
 
         javascripts.append(
             f"""/**
@@ -212,19 +224,19 @@ def create_interface(apis: list[Callable], source_file: str) -> list[str]:
  * @returns {{{return_type}}}
  */
 export function {route}({', '.join(args)}) {{
-    const res = fetchSync(`/api/{route}?{'&'.join(list(map(lambda x: x + "=${" + x + "}", args)))}`)
-    return res.response
+    const res = fetchSync(`/api/{route}?{"&".join(list(map(lambda x: x + "=${" + x + "}", args)))}`)
+    return {"new DataFrame(res.response)" if is_pandas else "res.response"}
 }}"""
         )
 
-    return javascripts
+    return javascripts, suggest_dframe
 
 
 def create_api(apis: list[Callable], source_file: str) -> str:
     """Messy API to check imports and function name + args and convert to a Quart app"""
     args, source, types, imports, _ = _create_api(apis, source_file)
 
-    argmap = [
+    argmap: Any = [
         {k: f"request.args.get('{k}', type={w.__name__})" for k, w in zip(l, t)}
         for l, t in zip(args, types)
     ]
@@ -246,11 +258,9 @@ async def root_():
 {_N.join([replace_some(f"@app.route({_Q}/api/{name}{_Q}){_N}async def {name}():{_N}{''.join(lines)}", argmap) for name, lines in source.items()])}
     """[
             :-4
-        ].replace(
-            "from .module import Module\n", ""
-        ).replace(
-            "from .helpers import template\n", ""
-        )
+        ]
+        .replace("from .module import Module\n", "")
+        .replace("from .helpers import template\n", "")
         + "\napp.run()\n"
     )
 

@@ -1,10 +1,12 @@
 """The CLI, I guess"""
-import argparse
+from argparse import ArgumentParser, Namespace
+import shutil
 import os
-from pathlib import Path
-import sys
-from runpy import run_path
 import time
+import sys
+
+from pathlib import Path
+from runpy import run_path
 
 from rich.console import Console
 from rich.markdown import Markdown
@@ -27,13 +29,14 @@ REQUIREMENTS = [
 ]
 
 
-def new(namespace):
+def new(namespace: Namespace) -> None:
     """Scaffold a new Spylt project"""
     if Path(namespace.directory).exists():
         console.log(f"𐄂 {namespace.directory} already exists as a directory")
         sys.exit(1)
 
     start = time.time()
+
     os.makedirs(Path(namespace.directory) / "src")
     os.chdir(namespace.directory)
 
@@ -46,14 +49,14 @@ def new(namespace):
 
     with console.status("Installing required dependencies..."):
         os.system("npm init --y >/dev/null")
-        os.system(f"npm install --save-dev {' '.join(REQUIREMENTS)} >/dev/null 2>/dev/null")
-        
-    with open(
-        Path(__file__).parent / "rollup.config.txt",
-        encoding="utf-8",
-    ) as fh:
-        with open("./rollup.config.js", "w", encoding="utf-8") as fh_:
-            fh_.write(fh.read())
+        os.system(
+            f"npm install --save-dev {' '.join(REQUIREMENTS)} >/dev/null 2>/dev/null"
+        )
+
+    shutil.copyfile(
+        Path(__file__).parent / "rollup.config.js.txt",
+        "./rollup.config.js",
+    )
 
     with open("src/App.svelte", "w", encoding="utf-8") as fh:
         fh.write(
@@ -103,10 +106,12 @@ $ python3 main.py
     )
 
 
-def build(namespace):
+def build(namespace: Namespace) -> None:
     """Compile Spylt backend module and Svelte code"""
     if not Path("src/App.py").exists():
-        console.log(Markdown("𐄂 Could not find `src/App.py`. Are you in a Spylt project?"))
+        console.log(
+            Markdown("𐄂 Could not find `src/App.py`. Are you in a Spylt project?")
+        )
         sys.exit(1)
 
     start = time.time()
@@ -117,7 +122,7 @@ def build(namespace):
 
         # There's some strange lines coming from module so trim it
         with open(namespace.py, "w", encoding="utf-8") as fh:
-            fh.write("\n".join(api_string.split("\n")[10:]))
+            fh.write("\n".join(api_string.split("\n")))
     end = time.time()
 
     console.log(f"✓ Backend code compiled in {end - start:.2f}s")
@@ -142,12 +147,12 @@ You can now run the app with `python3 {namespace.py}`"""
     )
 
 
-def interface(namespace):
+def interface(namespace: Namespace) -> None:
     """Create a JavaScript interface from a Spylt API"""
     start = time.time()
 
     with console.status("Creating interface from backend..."):
-        if not os.path.exists("src/App.py"):
+        if not Path("src/App.py").exists():
             console.log(
                 Markdown("𐄂 Could not find `src/App.py`. Are you in a Spylt project?")
             )
@@ -155,10 +160,19 @@ def interface(namespace):
 
         app_context = run_path("src/App.py")
         app = [v for v in app_context.values() if isinstance(v, Module)][0]
-        interface_ = app.create_interface()
+        interface_, suggest = app.create_interface()
 
-        with open(namespace.out, "w", encoding="utf-8") as fh:
-            fh.write(interface_)
+    if suggest:
+        with console.status(
+            "ⓘ This project uses Pandas dataframes in some places. Installing dataframe-js..."
+        ):
+            os.system("npm install dataframe-js > /dev/null 2>/dev/null")
+            os.system(
+                "npm install --save-dev @types/dataframe-js > /dev/null 2>/dev/null"
+            )
+
+    with open(namespace.out, "w", encoding="utf-8") as fh:
+        fh.write(interface_)
     end = time.time()
 
     console.log(
@@ -170,9 +184,9 @@ def interface(namespace):
     )
 
 
-def create_cli():
+def create_cli() -> ArgumentParser:
     """Create an argparse CLI"""
-    parser = argparse.ArgumentParser(
+    parser = ArgumentParser(
         prog="spylt",
         description=(
             "Spylt: A Python and Svelte framework which converts "
