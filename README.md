@@ -19,10 +19,9 @@ This is what Spylt aims to do. Spylt works best for demo apps (like [Streamlit](
 Install spylt with `pip`:
 
 ```bash
-git clone https://github.com/lemystic/spylt
+git clone https://github.com/ajskateboarder/spylt
 cd spylt
 pip install -r requirements.txt
-pip install -e .
 ```
 
 Initialize a starter project with `spylt new`:
@@ -32,10 +31,30 @@ python3 -m spylt new <dir>
 cd <dir>
 ```
 
-Make any changes to the application code and build it:
+Whenever you make changes to your API in `src/App.py`, you can build a typed JavaScript wrapper for it using `spylt interface`:
 
 ```bash
-python3 -m spylt build src/App index.html
+python3 -m spylt interface
+```
+
+which looks like this:
+
+```js
+/**
+ * {function docstring}
+ * @param {type} param
+ * @returns {type}
+ */
+export function name(param) {
+  const res = fetchSync(`/api/route?param=${param}`)
+  return res.response
+}
+```
+
+After you make changes to your backend and frontend, you can use `spylt build` to compile them into a web API and static HTML respectively:
+
+```bash
+python3 -m spylt build
 # start the server
 python3 main.py
 ```
