@@ -106,6 +106,9 @@ def create_html(linker: str) -> str:
         .replace("//# sourceMappingURL=bundle.js.map", "")
         .replace("const$", "$")
         .replace("function$", "function $")
+        .replace("let$", "let $")
+        .replace("var$", "var $")
+        .replace("instanceof$s", "instanceof $s")
     )
 
 
@@ -134,6 +137,7 @@ def _create_api(functions: list[Callable], source_file: str) -> Any:
             if defined:
                 if "return" in line:
                     return_obj = line.strip().split(" ", 1)[-1]
+                    print(return_obj)
                     pandas_json = (
                         '.to_dict(orient="records")'
                         if "pandas.core.frame.DataFrame"
@@ -234,13 +238,27 @@ export function {route}({', '.join(args)}) {{
 
 def create_api(apis: list[Callable], source_file: str) -> str:
     """Messy API to check imports and function name + args and convert to a Quart app"""
-    args, source, types, imports, _ = _create_api(apis, source_file)
+    all_args, source, types, imports, _ = _create_api(apis, source_file)
 
     argmap: Any = [
         {k: f"request.args.get('{k}', type={w.__name__})" for k, w in zip(l, t)}
-        for l, t in zip(args, types)
+        for l, t in zip(all_args, types)
     ]
     argmap = {k: v for d in argmap for k, v in d.items()}
+
+    functions = []
+    for (name, lines), args in zip(source.items(), all_args):
+        spaces = " " * lines[0].split(" ").count("")
+        params = "\n".join([
+            f"{spaces}{var} = {argmap[var]}"
+            for var in args
+        ]) + "\n"
+        functions.append(
+                f"@app.route(\"/api/{name}\")\n\
+async def {name}():\n\
+{''.join([params, *lines])}",
+        )
+    functions = "\n".join(functions)
 
     api_string = (
         f"""{_N.join(imports)}
@@ -255,7 +273,7 @@ async def root_():
     with open("index.html", encoding="utf-8") as fh:
         return fh.read()
 
-{_N.join([replace_some(f"@app.route({_Q}/api/{name}{_Q}){_N}async def {name}():{_N}{''.join(lines)}", argmap) for name, lines in source.items()])}
+{functions}
     """[
             :-4
         ]

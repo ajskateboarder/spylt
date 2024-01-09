@@ -1,7 +1,7 @@
 """Module system to import Svelte"""
 from __future__ import annotations
 
-from typing import Callable, Any
+from typing import Callable
 from collections.abc import MutableMapping
 
 import inspect
@@ -74,14 +74,9 @@ class Module:
         interface, suggest = builder.create_interface(self._apis, self._file)
         return "\n\n".join(interface), suggest
 
-    def backend(self) -> Callable:
+    def __call__(self, *args) -> Callable:
         """Create a function which converts to a Quart API route"""
-
-        def wrapper(*args: Callable) -> Any:
-            ret: Any = self.set_apis(*args)
-            return ret
-
-        return wrapper
+        return self.set_apis(*args)
 
 
 def require_svelte(path: str) -> Module:

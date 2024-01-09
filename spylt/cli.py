@@ -52,6 +52,9 @@ def new(namespace: Namespace) -> None:
         os.system(
             f"npm install --save-dev {' '.join(REQUIREMENTS)} >/dev/null 2>/dev/null"
         )
+        os.system(
+            f"pip install json2html >/dev/null 2>/dev/null"
+        )
 
     shutil.copyfile(
         Path(__file__).parent / "rollup.config.js.txt",

@@ -10,5 +10,5 @@
     "--show-column-numbers",
     "--disallow-untyped-defs",
     "--disallow-untyped-calls"
-  ]
+  ],
 }
