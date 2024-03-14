@@ -57,7 +57,7 @@ python3 -m spylt build
 python3 main.py
 ```
 
-Check out the [example project](/example/) for more information.
+Check out the [example project](/example/) and documentation on [using Pandas dataframes](/pandas.md) for more information.
 
 ## Caveats
 

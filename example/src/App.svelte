@@ -1,7 +1,7 @@
 <!-- point ./src/App.py:app -->
 <script>
     let text;
-    import { say_hello } from "./App.py.js";
+    import { say_hello } from "./api.js";
 </script>
 
 <main>
