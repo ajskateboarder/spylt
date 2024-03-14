@@ -78,33 +78,38 @@ def new(namespace: Namespace) -> None:
     with open("src/App.py", "w", encoding="utf-8") as fh:
         fh.write(
             '''from spylt import require_svelte
+import pandas as pd
 
 app = require_svelte("./src/App.svelte")
 
-@app.backend()
+@app
 def say_hello(name: str) -> str:
     """Says hello to the user"""
     return f"Hello {name}"
 
-@app.backend()
+@app
 def scream_hello(name: str) -> str:
     """Screams hello to the user"""
     return f"HELLO {name.upper()}!!"
+
+@app
+def some_data() -> pd.DataFrame:
+    """Provides some example data"""
+    return pd.DataFrame({"name": ["foo", "spam", "eggs"], "favorite color": ["red", "green", "violet"]})
         '''
         )
     end = time.time()
+    interpreter = os.path.basename(sys.executable)
 
     console.log(
         Markdown(
             f"""✓ Project {namespace.directory} scaffolded in {end - start:.2f}s.
 You can now run the following to get started:
-```bash
-$ cd {namespace.directory}
-$ python3 -m spylt interface
-$ python3 -m spylt build
-$ python3 main.py
-```
-            """
+
+cd {namespace.directory}
+{interpreter} -m spylt interface
+{interpreter} -m spylt build
+{interpreter} main.py"""
         )
     )
 
@@ -165,13 +170,14 @@ def interface(namespace: Namespace) -> None:
         app = [v for v in app_context.values() if isinstance(v, Module)][0]
         interface_, suggest = app.create_interface()
 
-    if suggest:
+    if suggest and not os.path.exists("node_modules/dataframe-js"):
         with console.status(
             "ⓘ This project uses Pandas dataframes in some places. Installing dataframe-js..."
         ):
-            os.system("npm install dataframe-js > /dev/null 2>/dev/null")
+            to_dev_null = " > /dev/null 2>/dev/null" if sys.platform != "win32" else ""
+            os.system(f"npm install dataframe-js{to_dev_null}")
             os.system(
-                "npm install --save-dev @types/dataframe-js > /dev/null 2>/dev/null"
+                f"npm install --save-dev @types/dataframe-js{to_dev_null}"
             )
 
     with open(namespace.out, "w", encoding="utf-8") as fh:

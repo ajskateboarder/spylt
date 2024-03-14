@@ -30,7 +30,7 @@ import black
 import isort
 
 from .exceptions import NoRoutesDefinedError, TypesNotDefinedError
-from .helpers import flatten_dict, replace_some
+from .helpers import flatten_dict
 from .module import Module
 
 _N, _Q = "\n", '"'
@@ -80,7 +80,7 @@ def create_link(inp: str) -> str:
 
 
 def create_html(linker: str) -> str:
-    """Create HTML from"""
+    """Create HTML from Svelte"""
     os.system(
         " ".join(
             [
@@ -108,7 +108,8 @@ def create_html(linker: str) -> str:
         .replace("function$", "function $")
         .replace("let$", "let $")
         .replace("var$", "var $")
-        .replace("instanceof$s", "instanceof $s")
+        .replace("new$", "new $")
+        .replace("instanceof$", "instanceof $")
     )
 
 
@@ -137,9 +138,8 @@ def _create_api(functions: list[Callable], source_file: str) -> Any:
             if defined:
                 if "return" in line:
                     return_obj = line.strip().split(" ", 1)[-1]
-                    print(return_obj)
                     pandas_json = (
-                        '.to_dict(orient="records")'
+                        f'.to_dict(orient="records"), "table": json2html.convert({return_obj}.to_json(orient="records"))'
                         if "pandas.core.frame.DataFrame"
                         in repr(get_annotations(api)["return"])
                         else ""
@@ -203,7 +203,7 @@ def create_interface(apis: list[Callable], source_file: str) -> tuple[list[str],
         "list": "any[]",
         "int": "number",
         "bool": "boolean",
-        "DataFrame": "DataFrame",
+        "DataFrame": "DataFrame & {table: string}",
     }
 
     javascripts = []
@@ -228,8 +228,9 @@ def create_interface(apis: list[Callable], source_file: str) -> tuple[list[str],
  * @returns {{{return_type}}}
  */
 export function {route}({', '.join(args)}) {{
-    const res = fetchSync(`/api/{route}?{"&".join(list(map(lambda x: x + "=${" + x + "}", args)))}`)
-    return {"new DataFrame(res.response)" if is_pandas else "res.response"}
+    const res = fetchSync(`/api/{route}?{"&".join(list(map(lambda x: x + "=${" + x + "}", args)))}`);
+    {"const df = Object.assign(new DataFrame(res.response), {table: res.table});" if is_pandas else ""}
+    return {"df" if is_pandas else "res.response"}
 }}"""
         )
 
@@ -264,6 +265,7 @@ async def {name}():\n\
         f"""{_N.join(imports)}
 from quart import Quart, request
 from quart_cors import cors
+{"from json2html.jsonconv import json2html" if any(["DataFrame" in str(f) for e in types for f in e]) else ""}
 
 app = Quart(__name__)
 app = cors(app, allow_origin="*")

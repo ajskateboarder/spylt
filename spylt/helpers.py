@@ -44,12 +44,6 @@ def js_val(encoder: JSONEncoder, data: Union[dict, list, Any]) -> str:
     return val
 
 
-def replace_some(text: str, conversion_dict: dict[str, Any]) -> str:
-    for key, value in conversion_dict.items():
-        text = text.replace(key, value)
-    return text
-
-
 def find_pointer(path: str) -> str:
     with open(path, encoding="utf-8") as fh:
         lines = fh.readlines()
@@ -68,18 +62,3 @@ def find_pointer(path: str) -> str:
             .strip()
         )
         return pointer
-
-
-UNDERSCORE_RE = re.compile(r"(?<=[^\-_])[\-_]+[^\-_]")
-
-
-def camelize(string: str) -> str:
-    if " " in string:
-        s = "_".join(map(lambda s: s.lower(), string.split(" ")))
-    else:
-        s = re.sub(r"\s+", "", str(string))
-
-    if len(s) != 0 and not s[:2].isupper():
-        s = s[0].lower() + s[1:]
-
-    return UNDERSCORE_RE.sub(lambda m: m.group(0)[-1].upper(), s)

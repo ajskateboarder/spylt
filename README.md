@@ -2,7 +2,7 @@
 
 **This project is very experimental, expect bugs and [caveats](#caveats)**
 
-**Spylt** (*pronounced spilt, combination of Svelte and Python*) is a connector for Python HTTP backends and Svelte frontends. Simple Python functions can be turned into web APIs which can be directly called from Svelte code **under a single codebase.**
+**Spylt** (*pronounced spilt, combination of Svelte and Python*) is a connector for Python HTTP backends and Svelte frontends. Simple Python functions can be turned into HTTP APIs which can be directly called from Svelte code **under a single codebase** with auto-generated wrappers with documentation and types.
 
 ## Why?
 
@@ -57,19 +57,21 @@ python3 -m spylt build
 python3 main.py
 ```
 
+Check out the [example project](/example/) for more information.
+
 ## Caveats
 
 Most of the caveats can be fixed manually by dumping the API by fixing errors manually.
 
 - **Using multiple parameters for functions creates completely wrong code**
 
-- **Return statements must be on one line.** If you have list comprehensions, save them to a seperate variable before returning
+- **Return statements must be on one line.** If you have list comprehensions or other multi-line statements, save them to a seperate variable before returning
 
 - `src.*` imports are ignored when compiling backend routes (I think)
 
 - Backend routes are strictly named after functions
 
-- Backend route parameters, when compiled, expect values to be passed through query params. This is obviously not secure for certain cases. (Support for POSTing can be added in the future)
+- Backend route parameters, when compiled, expect values to be passed through query params. This is obviously unwieldy for certain cases. (Support for POSTing can be added in the future)
 
 - Mentioned parameters require type annotations
 
